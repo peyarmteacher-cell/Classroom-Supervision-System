@@ -23,7 +23,7 @@ if (!$record_id) {
 
 // โหลดฐานข้อมูลหลักพร้อมรายละเอียดครูและปีการศึกษา
 $stmt = $pdo->prepare("
-    SELECT s.*, t.teacher_name, t.position, t.subject_group, y.year, y.semester
+    SELECT s.*, t.teacher_name, t.position, t.subject_group, t.photo_path, y.year, y.semester
     FROM supervisions s
     JOIN teachers t ON s.teacher_id = t.teacher_id
     JOIN academic_years y ON s.year_id = y.year_id
@@ -91,21 +91,26 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
 <body class="bg-slate-100 min-h-screen py-8 text-xs leading-relaxed text-slate-800">
 
     <!-- Action Bar (Hidden during Print) -->
-    <div class="no-print max-w-4xl mx-auto mb-6 bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <span class="text-2xl">📝</span>
-            <div>
-                <span class="font-extrabold block text-sm text-slate-800">เอกสารตรวจจัดพิมพ์ผลการประเมินวิทยฐานะ</span>
-                <span class="text-[10px] text-slate-400 block mt-0.5">โปรดตรวจสอบรายละเอียดความถูกต้องก่อนสั่งพิมพ์เป็นชิ้นงานเอกสารกระดาษ</span>
+    <div class="no-print max-w-4xl mx-auto mb-6 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">📝</span>
+                <div>
+                    <span class="font-extrabold block text-sm text-slate-800">เอกสารรายงานสรุปผลการประเมินนิเทศ (หน้าจัดเตรียมลายลักษณ์)</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">คุณครูสามารถพิมพ์หรือบันทึกเก็บเป็นเอกสาร PDF เพื่อใช้เข้าเล่มประเมินวิทยฐานะได้ทันที</span>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <a href="dashboard.php" class="px-4 py-2 bg-slate-150 hover:bg-slate-200 text-slate-700 font-bold rounded-xl whitespace-nowrap text-center text-xs">
+                    ⏮️ กลับสู่แดชบอร์ด
+                </a>
+                <button onclick="window.print()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer text-xs">
+                    🖨️ สั่งพิมพ์/บันทึก PDF (A4)
+                </button>
             </div>
         </div>
-        <div class="flex gap-2">
-            <a href="dashboard.php" class="px-4 py-2 bg-slate-150 hover:bg-slate-200 text-slate-700 font-bold rounded-xl whitespace-nowrap">
-                ⏮️ กลับสู่แดชบอร์ด
-            </a>
-            <button onclick="window.print()" class="px-5 py-2 bg-[#0A3370] hover:bg-slate-900 text-white font-extrabold rounded-xl shadow-md transition whitespace-nowrap flex items-center gap-1 cursor-pointer">
-                🖨️ สั่งพิมพ์ใบประเมินนี้ (Print A4)
-            </button>
+        <div class="bg-blue-50/70 border border-blue-200 p-3 rounded-xl text-[10.5px] text-blue-900 leading-relaxed font-semibold">
+            💡 <strong>คำแนะนำเพิ่มเติมในการบันทึกเป็นไฟล์ PDF:</strong> เมื่อคลิกปุ่มสั่งพิมพ์ ให้เลือก <strong>"ปลายทาง" (Destination)</strong> เป็น <strong>"บันทึกเป็น PDF" (Save as PDF)</strong> จากนั้นในแถบการตั้งค่าเพิ่มเติม (More settings) ให้ติ๊กเลือกถูกที่ <strong>"กราฟิกพื้นหลัง" (Background graphics)</strong> เพื่อให้สีสันกรอบ ตาราง และลายเส้นความก้าวหน้าแสดงผลอย่างครบถ้วนสวยงามเสมือนจริง
         </div>
     </div>
 
@@ -123,38 +128,52 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
         <!-- Section 1: Detailed Metadata Grid -->
         <div class="space-y-3">
             <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 1: ข้อมูลทั่วไปประจำคาบเรียนปฏิบัติการประเมิน</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 leading-relaxed font-medium">
-                <div>
-                    <span class="text-slate-400 block">ครูผู้เข้ารับนิเทศ:</span>
-                    <strong class="text-slate-800"><?php echo htmlspecialchars($rec['teacher_name']); ?></strong>
+            <div class="flex flex-col sm:flex-row gap-5 items-start">
+                <!-- ส่วนแสดงภาพระบุประจำตัวของคุณครูผู้รับประกันนิเทศ -->
+                <div class="w-20 h-24 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center shadow-inner relative">
+                    <?php if (!empty($rec['photo_path']) && file_exists($rec['photo_path'])): ?>
+                        <img src="<?php echo htmlspecialchars($rec['photo_path']); ?>" alt="รูปคุณครูผู้รับนิเทศ" class="w-full h-full object-cover">
+                    <?php else: ?>
+                        <div class="text-center">
+                            <span class="text-2xl block">👩‍🏫</span>
+                            <span class="text-[8px] text-slate-400 block mt-1">ไม่มีรูปภาพ</span>
+                        </div>
+                    <?php endif; ?>
                 </div>
-                <div>
-                    <span class="text-slate-400 block">ตำแหน่งงานวิทยฐานะ:</span>
-                    <strong class="text-slate-800"><?php echo htmlspecialchars($rec['position']); ?></strong>
-                </div>
-                <div>
-                    <span class="text-slate-400 block">สังกัดสาระการเรียนรู้:</span>
-                    <strong class="text-slate-800"><?php echo htmlspecialchars($rec['subject_group']); ?></strong>
-                </div>
-                <div>
-                    <span class="text-slate-400 block">รหัสภาคเรียนที่ใช้:</span>
-                    <strong class="text-[#0A3370]">เทอม <?php echo htmlspecialchars($rec['semester']); ?> ปีการศึกษา <?php echo htmlspecialchars($rec['year']); ?></strong>
-                </div>
-                <div>
-                    <span class="text-slate-400 block">วิชาเรียนสังเกตการณ์:</span>
-                    <strong class="text-slate-850"><?php echo htmlspecialchars($rec['subject_name']); ?></strong>
-                </div>
-                <div>
-                    <span class="text-slate-400 block">ชั้นเรียนประสงค์:</span>
-                    <strong class="text-slate-850">ชั้น <?php echo htmlspecialchars($rec['class_name']); ?></strong>
-                </div>
-                <div>
-                    <span class="text-slate-400 block">ผู้นิเทศควบคุม:</span>
-                    <strong class="text-slate-850"><?php echo htmlspecialchars($rec['evaluator_name']); ?></strong>
-                </div>
-                <div>
-                    <span class="text-slate-400 block">วิทยฐานะผู้นิเทศ:</span>
-                    <strong class="text-slate-850"><?php echo htmlspecialchars($rec['evaluator_position']); ?></strong>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 leading-relaxed font-medium w-full">
+                    <div>
+                        <span class="text-slate-400 block">ครูผู้เข้ารับนิเทศ:</span>
+                        <strong class="text-slate-800 text-[12.5px]"><?php echo htmlspecialchars($rec['teacher_name']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">ตำแหน่งงานวิทยฐานะ:</span>
+                        <strong class="text-slate-800"><?php echo htmlspecialchars($rec['position']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">สังกัดสาระการเรียนรู้:</span>
+                        <strong class="text-slate-800"><?php echo htmlspecialchars($rec['subject_group']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">รหัสภาคเรียนที่ใช้:</span>
+                        <strong class="text-[#0A3370]">เทอม <?php echo htmlspecialchars($rec['semester']); ?> ปีการศึกษา <?php echo htmlspecialchars($rec['year']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">วิชาเรียนสังเกตการณ์:</span>
+                        <strong class="text-slate-850"><?php echo htmlspecialchars($rec['subject_name']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">ชั้นเรียนประสงค์:</span>
+                        <strong class="text-slate-850">ชั้น <?php echo htmlspecialchars($rec['class_name']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">ผู้นิเทศควบคุม:</span>
+                        <strong class="text-slate-850"><?php echo htmlspecialchars($rec['evaluator_name']); ?></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block">วิทยฐานะผู้นิเทศ:</span>
+                        <strong class="text-slate-850"><?php echo htmlspecialchars($rec['evaluator_position']); ?></strong>
+                    </div>
                 </div>
             </div>
         </div>

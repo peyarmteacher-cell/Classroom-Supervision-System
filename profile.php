@@ -78,24 +78,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
             }
 
             if (empty($error_msg)) {
-                $pdo->beginTransaction();
-                try {
-                    // 1. ตรวจสอบการอัปเดตตารางครูหากล็อกอินเข้ามาด้วยฐานสิทธิ์คุณครู
-                    if ($user_role === 'teacher' && $teacher_data) {
-                        $stmt_up_t = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ? WHERE teacher_id = ?");
-                        $stmt_up_t->execute([$fullname, $position, $subject_group, $phone, $new_username, $teacher_data['teacher_id']]);
-                    }
-
-                    // 2. อัปเดตพัสดุตารางผู้ใช้งานหลัก
-                    if ($change_password) {
-                        $stmt_up_u = $pdo->prepare("UPDATE users SET username = ?, password = ?, fullname = ? WHERE username = ?");
-                        $stmt_up_u->execute([$new_username, $hashed_password, $fullname, $session_user]);
+                // อัปโหลดไฟล์รูปภาพหากเป็นสิทธิ์ผู้ใช้งานกลุ่มครูผู้รับนิเทศ
+                $photo_uploaded_path = $teacher_data['photo_path'] ?? null;
+                
+                if ($user_role === 'teacher' && isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
+                    $file_tmp = $_FILES['teacher_photo']['tmp_name'];
+                    $file_name = $_FILES['teacher_photo']['name'];
+                    $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                    $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+                    
+                    if (!in_array($file_ext, $allowed_exts)) {
+                        $error_msg = 'อนุญาตเฉพาะไฟล์รูปภาพสกุล JPG, JPEG, PNG หรือ GIF เท่านั้น';
                     } else {
-                        $stmt_up_u = $pdo->prepare("UPDATE users SET username = ?, fullname = ? WHERE username = ?");
-                        $stmt_up_u->execute([$new_username, $fullname, $session_user]);
+                        $new_file_name = 'teacher_' . ($teacher_data['teacher_id'] ?? 'temp') . '_' . time() . '.' . $file_ext;
+                        $dest_path = 'uploads/' . $new_file_name;
+                        
+                        if (move_uploaded_file($file_tmp, $dest_path)) {
+                            $photo_uploaded_path = $dest_path;
+                        } else {
+                            $error_msg = 'เกิดความผิดพลาดระหว่างเซฟไฟล์รูปภาพลงเซิร์ฟเวอร์โรงเรียน';
+                        }
                     }
+                }
 
-                    $pdo->commit();
+                if (empty($error_msg)) {
+                    $pdo->beginTransaction();
+                    try {
+                        // 1. ตรวจสอบการอัปเดตตารางครูหากล็อกอินเข้ามาด้วยฐานสิทธิ์คุณครู
+                        if ($user_role === 'teacher' && $teacher_data) {
+                            $stmt_up_t = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ?, photo_path = ? WHERE teacher_id = ?");
+                            $stmt_up_t->execute([$fullname, $position, $subject_group, $phone, $new_username, $photo_uploaded_path, $teacher_data['teacher_id']]);
+                        }
+
+                        // 2. อัปเดตพัสดุตารางผู้ใช้งานหลัก
+                        if ($change_password) {
+                            $stmt_up_u = $pdo->prepare("UPDATE users SET username = ?, password = ?, fullname = ? WHERE username = ?");
+                            $stmt_up_u->execute([$new_username, $hashed_password, $fullname, $session_user]);
+                        } else {
+                            $stmt_up_u = $pdo->prepare("UPDATE users SET username = ?, fullname = ? WHERE username = ?");
+                            $stmt_up_u->execute([$new_username, $fullname, $session_user]);
+                        }
+
+                        $pdo->commit();
 
                     // ตั้งค่าซีเควนซ์เซสชันใหม่เพื่อให้สารบัญเว็บอัปเดตชื่อผู้ใช้งานทันที
                     $_SESSION['username'] = $new_username;
@@ -208,8 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
             <!-- Side Card: Account Info -->
             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4">
                 <div class="text-center space-y-2">
-                    <div class="w-20 h-20 bg-amber-100/70 border border-amber-200 text-amber-700 flex items-center justify-center text-4xl rounded-full mx-auto">
-                        <?php echo $user_role === 'teacher' ? '👩‍🏫_👨‍🏫' : '👑'; ?>
+                    <div class="w-24 h-24 bg-amber-100/70 border border-amber-200 text-amber-700 flex items-center justify-center text-4xl rounded-xl mx-auto overflow-hidden relative shadow-inner">
+                        <?php if ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && file_exists($teacher_data['photo_path'])): ?>
+                            <img src="<?php echo htmlspecialchars($teacher_data['photo_path']); ?>" alt="รูปภาพประจำตัวครู" class="w-full h-full object-cover">
+                        <?php else: ?>
+                            <span class="text-4xl"><?php echo $user_role === 'teacher' ? '👩‍🏫' : '👑'; ?></span>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <h3 class="font-extrabold text-slate-800 text-sm"><?php echo htmlspecialchars($u_data['fullname']); ?></h3>
@@ -252,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                     <p class="text-[10px] text-slate-400 mt-0.5">คุณสามารถปรับเปลี่ยนชื่อล็อกอิน รายละเอียดติดต่อ และพาสเวิร์ดที่ใช้ในการเข้าสู่ระบบ</p>
                 </div>
 
-                <form method="POST" class="space-y-4 text-xs font-semibold text-slate-650">
+                <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-semibold text-slate-650">
                     <input type="hidden" name="action_update_profile" value="1">
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -301,6 +329,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                             <div class="space-y-1 sm:col-span-2">
                                 <label class="text-xs font-bold text-slate-500">เบอร์โทรศัพท์ติดต่อ</label>
                                 <input type="text" name="phone" value="<?php echo htmlspecialchars($teacher_data['phone']); ?>" placeholder="เช่น 081-XXXXXXX" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono">
+                            </div>
+
+                            <!-- Photo Upload -->
+                            <div class="space-y-2 sm:col-span-2 border-t border-dashed pt-4 mt-1">
+                                <label class="text-xs font-bold text-amber-700 block">📸 อัพโหลดรูปถ่ายประจำตัวของคุณครู (สำหรับหน้าข้อมูลและการนิเทศ)</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                                </div>
+                                <p class="text-[9px] text-slate-400">รองรับไฟล์รูปภาพเท่านั้น (JPG, JPEG, PNG, GIF) เพื่อให้ผู้อำนวยการโรงเรียนรู้จักหน้าคุณครูในการทำรายงานนิเทศ</p>
                             </div>
                         </div>
                     <?php endif; ?>

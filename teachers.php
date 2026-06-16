@@ -69,9 +69,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
     if (!empty($teacher_name)) {
         if ($edit_id) {
             // ค้นหา username เก่าเพื่ออัปเดตอย่างสมบูรณ์เชื่อมถึง
-            $stmt_old_u = $pdo->prepare("SELECT username FROM teachers WHERE teacher_id = ?");
+            $stmt_old_u = $pdo->prepare("SELECT username, photo_path FROM teachers WHERE teacher_id = ?");
             $stmt_old_u->execute([$edit_id]);
-            $old_u = $stmt_old_u->fetchColumn();
+            $old_data = $stmt_old_u->fetch();
+            $old_u = $old_data['username'];
+            
+            // คำนวณรักษารูปเดิม
+            $photo_uploaded_path = $old_data['photo_path'] ?? null;
+
+            if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
+                $file_tmp = $_FILES['teacher_photo']['tmp_name'];
+                $file_name = $_FILES['teacher_photo']['name'];
+                $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+                if (in_array($file_ext, $allowed_exts)) {
+                    $new_file_name = 'teacher_' . $edit_id . '_' . time() . '.' . $file_ext;
+                    $dest_path = 'uploads/' . $new_file_name;
+                    if (move_uploaded_file($file_tmp, $dest_path)) {
+                        $photo_uploaded_path = $dest_path;
+                    }
+                }
+            }
 
             if (empty($username_field)) {
                 $username_field = $old_u;
@@ -92,8 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                     $pdo->beginTransaction();
                     try {
                         // อัพเดตตารางคุณครูผู้สอน
-                        $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ? WHERE teacher_id = ?");
-                        $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $edit_id]);
+                        $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ?, photo_path = ? WHERE teacher_id = ?");
+                        $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $edit_id]);
                         
                         // อัปเดตตาราง users
                         if (!empty($password_field)) {
@@ -130,6 +148,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
             $next_num = $curr_max_id_num + 1;
             $new_teacher_id = 'T-' . str_pad($next_num, 3, '0', STR_PAD_LEFT);
             
+            $photo_uploaded_path = null;
+            if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
+                $file_tmp = $_FILES['teacher_photo']['tmp_name'];
+                $file_name = $_FILES['teacher_photo']['name'];
+                $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+                if (in_array($file_ext, $allowed_exts)) {
+                    $new_file_name = 'teacher_' . $new_teacher_id . '_' . time() . '.' . $file_ext;
+                    $dest_path = 'uploads/' . $new_file_name;
+                    if (move_uploaded_file($file_tmp, $dest_path)) {
+                        $photo_uploaded_path = $dest_path;
+                    }
+                }
+            }
+
             if (empty($username_field)) {
                 $username_field = "teacher_t{$next_num}";
             }
@@ -151,8 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                     $pdo->beginTransaction();
                     try {
                         // บันทึกลงตารางครูผู้สอน
-                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username) VALUES (?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field]);
+                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path]);
 
                         // สร้างคู่ไอดีบัญชีล็อกอินในระบบโดยใช้อัลกอรึทึมความปลอดภัยมาตรฐานสากล
                         $hashed_pass = password_hash($input_password, PASSWORD_DEFAULT);
@@ -273,7 +306,7 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                     <p class="text-[10px] text-slate-400 mt-0.5">ระบบจะสร้างบัญชีผู้ใช้งานสำหรับล็อกอินอัตโนมัติ</p>
                 </div>
 
-                <form method="POST" class="space-y-4 text-xs font-medium">
+                <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-medium">
                     <input type="hidden" name="action_save_teacher" value="1">
                     
                     <div class="space-y-1">
@@ -308,6 +341,17 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">เบอร์โทรศัพท์ติดต่อ</label>
                         <input type="text" name="phone" value="<?php echo htmlspecialchars($phone); ?>" placeholder="เช่น 081-XXXXXXX" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono">
+                    </div>
+
+                    <!-- Photo Upload -->
+                    <div class="space-y-2 border-t border-dashed pt-4 mt-1">
+                        <label class="text-xs font-bold text-amber-700 block">📸 ภาพถ่ายประจำตัวคุณครู</label>
+                        <?php if ($edit_id && !empty($t_data['photo_path']) && file_exists($t_data['photo_path'])): ?>
+                            <div class="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 mb-1.5 shadow-sm">
+                                <img src="<?php echo htmlspecialchars($t_data['photo_path']); ?>" class="w-full h-full object-cover">
+                            </div>
+                        <?php endif; ?>
+                        <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-505 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
                     </div>
 
                     <div class="space-y-1 border-t border-dashed pt-4">
@@ -361,7 +405,18 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                             <?php foreach ($all_teachers as $t): ?>
                                 <tr class="hover:bg-slate-50 transition">
                                     <td class="p-3 font-mono font-bold text-blue-900"><?php echo htmlspecialchars($t['teacher_id']); ?></td>
-                                    <td class="p-3 font-bold text-slate-900"><?php echo htmlspecialchars($t['teacher_name']); ?></td>
+                                    <td class="p-3 font-bold text-slate-900">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 flex items-center justify-center">
+                                                <?php if (!empty($t['photo_path']) && file_exists($t['photo_path'])): ?>
+                                                    <img src="<?php echo htmlspecialchars($t['photo_path']); ?>" class="w-full h-full object-cover">
+                                                <?php else: ?>
+                                                    <span class="text-xs">👩‍🏫</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <span><?php echo htmlspecialchars($t['teacher_name']); ?></span>
+                                        </div>
+                                    </td>
                                     <td class="p-3 text-slate-600"><?php echo htmlspecialchars($t['position']); ?></td>
                                     <td class="p-3 text-slate-550 font-medium"><?php echo htmlspecialchars($t['subject_group']); ?></td>
                                     <td class="p-3 font-mono font-extrabold text-amber-600 bg-amber-50/20 px-1.5 py-0.5 rounded text-[10px] inline-block mt-3 ml-2 border border-amber-100/50"><?php echo htmlspecialchars($t['username']); ?></td>

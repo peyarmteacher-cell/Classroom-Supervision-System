@@ -102,8 +102,24 @@ try {
         `subject_group` VARCHAR(150) NOT NULL,
         `phone` VARCHAR(20) DEFAULT NULL,
         `username` VARCHAR(50) DEFAULT NULL,
+        `photo_path` VARCHAR(255) DEFAULT NULL,
         PRIMARY KEY (`teacher_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    // ตรวจสอบโครงสร้างตาราง teachers เผื่อตารางสร้างไปก่อนแล้วเพื่อเติมคอลัมน์คลังรูปภาพครู
+    try {
+        $check_col = $pdo->query("SHOW COLUMNS FROM `teachers` LIKE 'photo_path'")->fetch();
+        if (!$check_col) {
+            $pdo->exec("ALTER TABLE `teachers` ADD COLUMN `photo_path` VARCHAR(255) DEFAULT NULL;");
+        }
+    } catch (Exception $col_err) {
+        // เงียบไว้ในกรณีที่ฐานข้อมูลจำกัดคำสั่ง ALTER
+    }
+
+    // สร้างโฟลเดอร์จัดเก็บภาพคุณครูและภาพนิเทศเพื่อความพร้อมในการทำงานจริง
+    if (!is_dir(__DIR__ . '/uploads')) {
+        mkdir(__DIR__ . '/uploads', 0755, true);
+    }
 
     // ตารางปีการศึกษา
     $pdo->exec("CREATE TABLE IF NOT EXISTS `academic_years` (

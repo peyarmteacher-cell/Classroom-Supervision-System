@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header("Location: dashboard.php");
                 exit;
             } else {
-                $error = "รหัสผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง (รหัสเริ่มต้นของเครื่องทดสอบโรงเรียนคือ: 123456)";
+                $error = "รหัสผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบหรือติดต่อผู้ดูแลระบบเพื่อแจ้งปัญหา";
             }
         }
     } else {
@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label class="text-xs font-bold text-slate-500 block">ชื่อผู้ใช้งานล็อกอิน (Username)</label>
                 <div class="relative">
                     <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">👤</span>
-                    <input type="text" name="username" required placeholder="เช่น admin, director, teacher_t1" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none">
+                    <input type="text" name="username" required placeholder="กล่องระบุชื่อเข้าใช้ของท่าน" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none">
                 </div>
             </div>
 
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label class="text-xs font-bold text-slate-500 block">รหัสผ่านสำหรับเข้าเครื่อง (Password)</label>
                 <div class="relative">
                     <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔑</span>
-                    <input type="password" name="password" required placeholder="รหัสผู้ผ่านความมั่นคงปลอดภัย" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none">
+                    <input type="password" name="password" required placeholder="กรอกพาสเวิร์ดส่วนบุคคล" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none">
                 </div>
             </div>
 
@@ -105,18 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 เข้าสู่ระบบประเมินนิเทศ
             </button>
         </form>
-
-        <div class="bg-amber-50/50 border border-dashed border-amber-200 p-3 rounded-xl space-y-1 text-[11px] leading-relaxed text-amber-900">
-            <span class="font-bold text-amber-700 block text-xs">📌 ข้อมูลเข้าใช้งานทดลองเชื่อมฐานข้อมูลโรงเรียน:</span>
-            <div class="grid grid-cols-2 gap-y-1 font-mono text-[10px]">
-                <div>• ฝ่ายพัฒนาแอดมิน:</div>
-                <div><strong>admin</strong> / 123456</div>
-                <div>• ท่านผู้อำนวยการ:</div>
-                <div><strong>director</strong> / 123456</div>
-                <div>• บัญชีคุณครูไทย:</div>
-                <div><strong>teacher_t1</strong> / 123456</div>
-            </div>
-        </div>
     </div>
 </body>
 </html>
