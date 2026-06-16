@@ -21,6 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['username'] = $user['username'];
             $_SESSION['fullname'] = $user['fullname'];
             $_SESSION['role'] = $user['role'];
+            
+            // หา teacher_id ป้อนหากมีระบบบทบาทคุณครู
+            if ($user['role'] === 'teacher') {
+                $stmt_tid = $pdo->prepare("SELECT teacher_id FROM teachers WHERE username = ?");
+                $stmt_tid->execute([$user['username']]);
+                $_SESSION['teacher_id'] = $stmt_tid->fetchColumn() ?: '';
+            }
+            
             header("Location: dashboard.php");
             exit;
         } else {

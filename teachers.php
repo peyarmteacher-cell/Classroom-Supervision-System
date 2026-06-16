@@ -20,6 +20,7 @@ $teacher_name = '';
 $position = 'ครู คศ.1';
 $subject_group = 'กลุ่มสาระการเรียนรู้ภาษาไทย';
 $phone = '';
+$username_field = '';
 
 // กรณีคลิกกดโหลดข้อมูลคุณครูมาเตรียมแก้ไข
 if ($edit_id) {
@@ -31,6 +32,7 @@ if ($edit_id) {
         $position = $t_data['position'];
         $subject_group = $t_data['subject_group'];
         $phone = $t_data['phone'];
+        $username_field = $t_data['username'] ?? '';
     }
 }
 
@@ -61,25 +63,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
     $position = trim($_POST['position'] ?? '');
     $subject_group = trim($_POST['subject_group'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $username_field = trim($_POST['username_field'] ?? '');
+    $password_field = $_POST['password_field'] ?? '';
 
     if (!empty($teacher_name)) {
         if ($edit_id) {
-            // อัพเดตตัวตนระบบ
-            $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ? WHERE teacher_id = ?");
-            $stmt->execute([$teacher_name, $position, $subject_group, $phone, $edit_id]);
-            
-            // อัปเดตตาราง user ด้วย
-            $stmt_u = $pdo->prepare("SELECT username FROM teachers WHERE teacher_id = ?");
-            $stmt_u->execute([$edit_id]);
-            $usr = $stmt_u->fetchColumn();
-            if ($usr) {
-                $stmt_u_up = $pdo->prepare("UPDATE users SET fullname = ? WHERE username = ?");
-                $stmt_u_up->execute([$teacher_name, $usr]);
+            // ค้นหา username เก่าเพื่ออัปเดตอย่างสมบูรณ์เชื่อมถึง
+            $stmt_old_u = $pdo->prepare("SELECT username FROM teachers WHERE teacher_id = ?");
+            $stmt_old_u->execute([$edit_id]);
+            $old_u = $stmt_old_u->fetchColumn();
+
+            if (empty($username_field)) {
+                $username_field = $old_u;
             }
 
-            $success_msg = "แก้ไขประวัติคุณครู {$teacher_name} เรียบร้อยแล้ว";
-            header("Location: teachers.php?success_msg=" . urlencode($success_msg));
-            exit;
+            // คำนวณความปลอดภัยตรวจสอบตัวอักษร
+            if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $username_field)) {
+                $error_msg = 'ชื่อล็อกอินผู้ใช้ต้องประกอบด้วยภาษาอังกฤษหรือตัวเลขห้ามมีเว้นวรรค';
+            } else {
+                // ตรวจชื่อผู้ใช้งานชนซ้ำในตารางผู้ใช้หลักไหม
+                $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND username != ?");
+                $stmt_check->execute([$username_field, $old_u]);
+                $exists = $stmt_check->fetchColumn();
+
+                if ($exists > 0) {
+                    $error_msg = "ชื่อล็อกอิน '{$username_field}' มีหัวหน้าหมวดหรือคนอื่นใช้ไปแล้วในระบบ กรุณาใช้ชื่ออื่น";
+                } else {
+                    $pdo->beginTransaction();
+                    try {
+                        // อัพเดตตารางคุณครูผู้สอน
+                        $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ? WHERE teacher_id = ?");
+                        $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $edit_id]);
+                        
+                        // อัปเดตตาราง users
+                        if (!empty($password_field)) {
+                            $hashed_pass = password_hash($password_field, PASSWORD_DEFAULT);
+                            $stmt_u_up = $pdo->prepare("UPDATE users SET username = ?, password = ?, fullname = ? WHERE username = ?");
+                            $stmt_u_up->execute([$username_field, $hashed_pass, $teacher_name, $old_u]);
+                        } else {
+                            $stmt_u_up = $pdo->prepare("UPDATE users SET username = ?, fullname = ? WHERE username = ?");
+                            $stmt_u_up->execute([$username_field, $teacher_name, $old_u]);
+                        }
+
+                        $pdo->commit();
+
+                        $success_msg = "แก้ไขประวัติและรหัสผ่านเข้าใช้งานคุณครู {$teacher_name} เรียบร้อยแล้ว";
+                        header("Location: teachers.php?success_msg=" . urlencode($success_msg));
+                        exit;
+                    } catch (Exception $e) {
+                        $pdo->rollBack();
+                        $error_msg = "เกิดความผิดพลาด: " . $e->getMessage();
+                    }
+                }
+            }
         } else {
             // การจดรับเพิ่มใหม่
             // สร้างไอดีที่มีสัญลักษณ์กระทรวงศึกษา เช่น T-00X
@@ -93,20 +129,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
             }
             $next_num = $curr_max_id_num + 1;
             $new_teacher_id = 'T-' . str_pad($next_num, 3, '0', STR_PAD_LEFT);
-            $new_username = "teacher_t{$next_num}";
+            
+            if (empty($username_field)) {
+                $username_field = "teacher_t{$next_num}";
+            }
+            
+            $input_password = !empty($password_field) ? $password_field : '123456';
 
-            // บันทึกลงตารางครูผู้สอน
-            $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $new_username]);
+            // ตรวจสอบความถูกต้องของอักขระ
+            if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $username_field)) {
+                $error_msg = 'ระบุชื่อล็อกอินเฉพาะตัวเลข ภาษาอังกฤษ และสัญลักษณ์สากลเท่านั้น';
+            } else {
+                // ตรวจซ้ำก่อนลงทะเบียน
+                $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+                $stmt_check->execute([$username_field]);
+                $exists = $stmt_check->fetchColumn();
 
-            // สร้างคู่ไอดีบัญชีล็อกอินในระบบโดยใช้อัลกอรึทึมความปลอดภัยมาตรฐานสากล
-            $hashed_pass = password_hash('123456', PASSWORD_DEFAULT);
-            $stmt_user = $pdo->prepare("INSERT INTO users (username, password, fullname, role) VALUES (?, ?, ?, 'teacher')");
-            $stmt_user->execute([$new_username, $hashed_pass, $teacher_name]);
+                if ($exists > 0) {
+                    $error_msg = "ชื่อล็อกอินผู้ใช้งาน '{$username_field}' ถูกใช้งานแล้วโดยเจ้าหน้าที่ท่านอื่นในระบบ";
+                } else {
+                    $pdo->beginTransaction();
+                    try {
+                        // บันทึกลงตารางครูผู้สอน
+                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username) VALUES (?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field]);
 
-            $success_msg = "ลงทะเบียนครูใหม่ {$new_teacher_id} คุณครู {$teacher_name} รหัสผ่านเริ่มต้นคือ 123456";
-            header("Location: teachers.php?success_msg=" . urlencode($success_msg));
-            exit;
+                        // สร้างคู่ไอดีบัญชีล็อกอินในระบบโดยใช้อัลกอรึทึมความปลอดภัยมาตรฐานสากล
+                        $hashed_pass = password_hash($input_password, PASSWORD_DEFAULT);
+                        $stmt_user = $pdo->prepare("INSERT INTO users (username, password, fullname, role) VALUES (?, ?, ?, 'teacher')");
+                        $stmt_user->execute([$username_field, $hashed_pass, $teacher_name]);
+
+                        $pdo->commit();
+
+                        $success_msg = "ลงทะเบียนครูใหม่ {$new_teacher_id} คุณครู {$teacher_name} ชื่อล็อกอินคือ {$username_field} รหัสผ่านคือ {$input_password}";
+                        header("Location: teachers.php?success_msg=" . urlencode($success_msg));
+                        exit;
+                    } catch (Exception $e) {
+                        $pdo->rollBack();
+                        $error_msg = "เกิดความผิดพลาดในการเขียนโปรแกรม: " . $e->getMessage();
+                    }
+                }
+            }
         }
     } else {
         $error_msg = 'กรุณากรอกระบุชื่อ-นามสกุลของคุณครูให้ชัดเจน';
@@ -154,7 +217,10 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                     <span class="font-bold text-amber-200 block text-[11px]"><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
                     <span class="text-[9px] text-slate-300">สิทธิ์: <?php echo strtoupper($_SESSION['role']); ?></span>
                 </div>
-                <a href="logout.php" class="bg-red-600 hover:bg-red-700 text-white font-bold p-1 px-2.5 rounded text-[10px] transition shadow">ออกจากระบบ</a>
+                <div class="flex flex-col gap-1">
+                    <a href="profile.php" class="bg-amber-500 hover:bg-amber-600 text-white font-bold p-1 px-2 rounded text-[9px] text-center transition shadow">ตั้งค่าบัญชี</a>
+                    <a href="logout.php" class="bg-red-600 hover:bg-red-700 text-white font-bold p-1 px-2.5 rounded text-[9px] text-center transition shadow">ออกจากระบบ</a>
+                </div>
             </div>
         </div>
     </header>
@@ -178,6 +244,9 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
             </a>
             <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
                 📅 สารบบปีการศึกษา
+            </a>
+            <a href="profile.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
+                ⚙️ ตั้งค่าบัญชีของฉัน
             </a>
         </div>
 
@@ -239,6 +308,16 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-500">เบอร์โทรศัพท์ติดต่อ</label>
                         <input type="text" name="phone" value="<?php echo htmlspecialchars($phone); ?>" placeholder="เช่น 081-XXXXXXX" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono">
+                    </div>
+
+                    <div class="space-y-1 border-t border-dashed pt-4">
+                        <label class="text-xs font-bold text-amber-700">ชื่อล็อกอินผู้ใช้งาน (Username) <?php echo !$edit_id ? '(เว้นว่างเพื่อตั้งอัตโนมัติ)' : '*'; ?></label>
+                        <input type="text" name="username_field" value="<?php echo htmlspecialchars($username_field); ?>" placeholder="<?php echo $edit_id ? 'เช่น t_malee' : 'ระบบตั้งค่าให้อัตโนมัติหากปล่อยว่าง'; ?>" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono focus:ring-1 focus:ring-blue-900">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-amber-700">รหัสผ่านสำหรับล็อกอิน <?php echo !$edit_id ? '(เว้นว่างสำหรับพาสเวิร์ดดีฟอลต์ 123456)' : '(เว้นวางหากไม่ต้องเปลี่ยน)'; ?></label>
+                        <input type="password" name="password_field" placeholder="<?php echo $edit_id ? 'พิมพ์แทนของเก่าเพื่อเปลี่ยนพาสเวิร์ด' : 'รหัสความเข้าใช้งาน หรือปล่อยว่างได้'; ?>" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-blue-900">
                     </div>
 
                     <div class="pt-2 flex gap-2">
