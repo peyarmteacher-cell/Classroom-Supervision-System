@@ -13,7 +13,7 @@ define('DB_CONFIG_FILE', __DIR__ . '/db_config.json');
 $db_host = 'localhost:3306';
 $db_name = 'schoolos_ClassroomSupervision';
 $db_user = 'ClassroomSupervision';
-$db_pass = ' lp8t@Spe!pCBq04u';
+$db_pass = 'lp8t@Spe!pCBq04u';
 
 // โหลดข้อมูลการเชื่อมต่อจากไฟล์ที่บันทึกไว้ในระบบอัตโนมัติ
 if (file_exists(DB_CONFIG_FILE)) {
@@ -59,22 +59,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_db_config
 try {
     // แยก host และ port หากมีการระบุมาในรูปแบบ host:port เช่น localhost:3306
     $host_parts = explode(':', $db_host);
-    if (count($host_parts) > 1) {
-        $dsn = "mysql:host={$host_parts[0]};port={$host_parts[1]};charset=utf8mb4";
-    } else {
-        $dsn = "mysql:host={$db_host};charset=utf8mb4";
+    $host_only = $host_parts[0];
+    $port_only = $host_parts[1] ?? '3306';
+
+    $pdo = null;
+    
+    // 1. พยายามเชื่อมตรงเข้าสู่ Database ทันที (ดีที่สุดสำหรับระบบปิด/Shared hosting ที่จำกัดสิทธิ์ผู้ใช้)
+    try {
+        $dsn = "mysql:host={$host_only};port={$port_only};dbname={$db_name};charset=utf8mb4";
+        $pdo = new PDO($dsn, $db_user, $db_pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+        ]);
+    } catch (PDOException $db_err) {
+        // หากเชื่อมไม่ผ่านเพราะไม่มีก้อน Database ให้พยายามสร้างขึ้นมาใหม่ (เช่น รันบน Local/XAMPP ครั้งแรก)
+        $err_msg = $db_err->getMessage();
+        if ($db_err->getCode() == 1049 || strpos($err_msg, 'Unknown database') !== false || strpos($err_msg, '1049') !== false) {
+            $dsn_no_db = "mysql:host={$host_only};port={$port_only};charset=utf8mb4";
+            $pdo = new PDO($dsn_no_db, $db_user, $db_pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+            ]);
+            $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            $pdo->exec("USE `{$db_name}`");
+        } else {
+            // หากพลาดจากรหัสผ่าน/ชื่อผู้ใช้งาน ให้ส่งต่อ Error ออกไป
+            throw $db_err;
+        }
     }
-
-    // 1. พยายามเชื่อมต่อแบบปกติก่อน
-    $pdo = new PDO($dsn, $db_user, $db_pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
-    ]);
-
-    // 2. ตรวจสอบการมีอยู่ของ Database และสร้างใหม่ถ้าไม่มีอยู่
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    $pdo->exec("USE `{$db_name}`");
 
     // =========================================================
     // ระบบการอัพเดทฐานข้อมูลและตารางโดยอัตโนมัติ (Automated Schema Installer)
