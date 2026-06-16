@@ -26,8 +26,15 @@ $categories = [
     'cat5' => ['label' => 'หมวดที่ 5: พฤติกรรมอุปนิสัยผู้เรียน', 'items' => [17, 18, 19, 20]]
 ];
 
-// โหลดรายชื่อครูทั้งหมดที่มีในตาราง
-$teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
+// โหลดรายชื่อครูที่มีสิทธิ์แสดงผลในตาราง
+if ($user_role === 'teacher') {
+    $my_teacher_username = $_SESSION['username'] ?? '';
+    $stmt_teachers = $pdo->prepare("SELECT * FROM teachers WHERE username = ?");
+    $stmt_teachers->execute([$my_teacher_username]);
+    $teachers = $stmt_teachers->fetchAll();
+} else {
+    $teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
+}
 
 // อ่างรายงานวิเคราะห์ครูแต่ละคนเพื่อป้อนลงโมเดลตารางเปรียบเทียบ
 $comparison_data = [];
@@ -136,22 +143,29 @@ foreach ($teachers as $t) {
     <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
         <!-- Shortcuts Ribbon -->
-        <div class="bg-white border border-slate-200 p-2.5 rounded-2xl shadow-sm flex flex-wrap gap-2 text-xs font-semibold font-semibold">
+        <div class="bg-white border border-slate-200 p-2.5 rounded-2xl shadow-sm flex flex-wrap gap-2 text-xs font-semibold">
             <a href="dashboard.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                 📊 แดชบอร์ดสถิติรวม
             </a>
-            <a href="supervision.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
-                ➕ บันทึกนิเทศคาบเรียนใหม่
-            </a>
+            <?php if ($user_role !== 'teacher'): ?>
+                <a href="supervision.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
+                    ➕ บันทึกนิเทศคาบเรียนใหม่
+                </a>
+            <?php endif; ?>
             <a href="comparison.php" class="px-4 py-2 bg-[#0A3370] text-white rounded-xl shadow-xs font-bold flex items-center gap-1.5">
                 🔎 วิเคราะห์ครูรายบุคคล/เปรียบเทียบ
             </a>
-            <a href="teachers.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
-                👥 ทะเบียนครูผู้สอน
-            </a>
-            <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
-                📅 สารบบปีการศึกษา
-            </a>
+            <?php if ($user_role === 'admin' || $user_role === 'director'): ?>
+                <a href="teachers.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
+                    👥 ทะเบียนครูผู้สอน
+                </a>
+                <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
+                    📅 สารบบปีการศึกษา
+                </a>
+                <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
+                    🚪 สารบบระดับชั้นเรียน
+                </a>
+            <?php endif; ?>
             <a href="profile.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                 ⚙️ ตั้งค่าบัญชีของฉัน
             </a>

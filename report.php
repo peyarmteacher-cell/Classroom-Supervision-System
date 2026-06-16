@@ -11,8 +11,15 @@ if (!isset($_SESSION['username'])) {
     exit;
 }
 
-$user_role = $_SESSION['role'];
+$user_role = $_SESSION['role'] ?? 'teacher';
 $my_teacher_id = $_SESSION['teacher_id'] ?? '';
+
+if ($user_role === 'teacher' && empty($my_teacher_id) && isset($_SESSION['username'])) {
+    $stmt_tid = $pdo->prepare("SELECT teacher_id FROM teachers WHERE username = ?");
+    $stmt_tid->execute([$_SESSION['username']]);
+    $my_teacher_id = $stmt_tid->fetchColumn() ?: '';
+    $_SESSION['teacher_id'] = $my_teacher_id;
+}
 
 $record_id = $_GET['id'] ?? null;
 
@@ -79,10 +86,15 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
     <style>
         body { font-family: 'Sarabun', 'Inter', sans-serif; }
         
+        @page {
+            size: A4 portrait;
+            margin: 15mm;
+        }
+        
         /* สไตล์ปรับขนาดเพื่อจัดหน้ากระดาษ A4 สำหรับพิมพ์ */
         @media print {
             .no-print { display: none !important; }
-            body { background: white; color: black; font-size: 11px; }
+            body { background: white; color: black; font-size: 11px; padding: 0 !important; margin: 0 !important; }
             .a4-container { width: 100%; border: none; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
             .avoid-break { page-break-inside: avoid; }
         }

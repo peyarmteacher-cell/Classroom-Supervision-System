@@ -15,6 +15,13 @@ $user_role = $_SESSION['role'] ?? 'teacher';
 $user_fullname = $_SESSION['fullname'] ?? '';
 $my_teacher_id = $_SESSION['teacher_id'] ?? '';
 
+if ($user_role === 'teacher' && empty($my_teacher_id) && isset($_SESSION['username'])) {
+    $stmt_tid = $pdo->prepare("SELECT teacher_id FROM teachers WHERE username = ?");
+    $stmt_tid->execute([$_SESSION['username']]);
+    $my_teacher_id = $stmt_tid->fetchColumn() ?: '';
+    $_SESSION['teacher_id'] = $my_teacher_id;
+}
+
 // รับค่าฟิลเตอร์ต่างๆ
 $filter_year = $_GET['filter_year'] ?? 'all';
 $search_query = trim($_GET['search'] ?? '');
@@ -227,11 +234,14 @@ if (isset($_GET['action_export_csv'])) {
                 🔎 วิเคราะห์ครูรายบุคคล/เปรียบเทียบ
             </a>
             <?php if ($user_role === 'admin' || $user_role === 'director'): ?>
-                <a href="teachers.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
+                <a href="teachers.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                     👥 ทะเบียนครูผู้สอน
                 </a>
-                <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
+                <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                     📅 สารบบปีการศึกษา
+                </a>
+                <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
+                    🚪 สารบบระดับชั้นเรียน
                 </a>
             <?php endif; ?>
             <a href="profile.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">

@@ -169,6 +169,13 @@ try {
         PRIMARY KEY (`username`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
+    // ตารางระดับชั้นสำหรับสร้างตัวเลือกมาตรฐาน
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `classrooms` (
+        `class_id` INT AUTO_INCREMENT,
+        `class_name` VARCHAR(100) NOT NULL UNIQUE,
+        PRIMARY KEY (`class_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
     // ==========================================
     // ตรวจสอบความถูกต้องและลงข้อมูลเริ่มต้นอัตโนมัติ (Automated Database Seeding)
     // ==========================================
@@ -239,6 +246,21 @@ try {
         $stmt = $pdo->prepare("INSERT INTO `academic_years` (`year_id`, `year`, `semester`) VALUES (?, ?, ?)");
         foreach ($years as $y) {
             $stmt->execute($y);
+        }
+    }
+
+    // 5. ลงระดับชั้นเรียนตั้งต้นตัวอย่างเพื่อความสะดวก
+    $check_classes = $pdo->query("SELECT COUNT(*) FROM `classrooms`")->fetchColumn();
+    if ($check_classes == 0) {
+        $default_classes = [
+            'ประถมศึกษาปีที่ 1', 'ประถมศึกษาปีที่ 2', 'ประถมศึกษาปีที่ 3',
+            'ประถมศึกษาปีที่ 4', 'ประถมศึกษาปีที่ 5', 'ประถมศึกษาปีที่ 6',
+            'มัธยมศึกษาปีที่ 1', 'มัธยมศึกษาปีที่ 2', 'มัธยมศึกษาปีที่ 3',
+            'มัธยมศึกษาปีที่ 4', 'มัธยมศึกษาปีที่ 5', 'มัธยมศึกษาปีที่ 6'
+        ];
+        $stmt_class = $pdo->prepare("INSERT IGNORE INTO `classrooms` (`class_name`) VALUES (?)");
+        foreach ($default_classes as $cls) {
+            $stmt_class->execute([$cls]);
         }
     }
 

@@ -64,6 +64,7 @@ if ($edit_id) {
 // โหลดทะเบียนคุณครู & ปีการศึกษามาทำ Dropdown
 $dropdown_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
 $dropdown_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
+$dropdown_classrooms = $pdo->query("SELECT * FROM classrooms ORDER BY class_name ASC")->fetchAll();
 
 // โหลดข้อคำถามนิเทศกลุ่มกระทรวง 5 หมวดหลักจากดาต้าเบส
 $evaluation_items = $pdo->query("SELECT * FROM evaluation_items ORDER BY CAST(item_id AS UNSIGNED) ASC")->fetchAll();
@@ -275,10 +276,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                         <input type="date" name="date_string" required value="<?php echo htmlspecialchars($date_string); ?>" class="w-full px-3 py-2 bg-slate-55 border border-slate-200 rounded-xl text-xs outline-none text-slate-700 font-semibold font-mono">
                     </div>
 
-                    <!-- Class level field -->
+                    <!-- Class level dropdown select -->
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-550 block">ระดับระดับชั้นเรียนประถมศึกษา *</label>
-                        <input type="text" name="class_name" required value="<?php echo htmlspecialchars($class_name); ?>" placeholder="เช่น ประถมศึกษาปีที่ 4/2 หรือ ป.4" class="w-full px-3 py-1.5 bg-slate-55 border border-slate-200 rounded-xl text-xs outline-none text-slate-700">
+                        <label class="text-xs font-bold text-slate-550 block">ระดับชั้นเรียนมาตรฐาน *</label>
+                        <select name="class_name" required class="w-full px-3 py-2.5 bg-slate-55 border border-slate-200 rounded-xl text-xs cursor-pointer outline-none font-semibold text-slate-700">
+                            <option value="">-- กรุณาเลือกระดับชั้นเรียน --</option>
+                            <?php foreach ($dropdown_classrooms as $cls): ?>
+                                <option value="<?php echo htmlspecialchars($cls['class_name']); ?>" <?php if ($class_name === $cls['class_name']) echo 'selected'; ?>>
+                                    <?php echo htmlspecialchars($cls['class_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <!-- Subject field -->
