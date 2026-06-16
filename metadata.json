@@ -1,0 +1,6 @@
+{
+  "name": "ระบบนิเทศการสอนออนไลน์ PHP & MySQL",
+  "description": "ระบบเว็บแอพพลิเคชันนิเทศการเรียนการสอนสําหรับโรงเรียน พัฒนาด้วย PHP และ MySQL พร้อมระบบทำงานบน React และซอร์สโค้ด PHP สำเร็จรูปสำหรับติดตั้งบนเซิร์ฟเวอร์โรงเรียน",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
