@@ -10,10 +10,10 @@ header('Content-Type: text/html; charset=utf-8');
 define('DB_CONFIG_FILE', __DIR__ . '/db_config.json');
 
 // ค่าตั้งต้นมาตรฐาน
-$db_host = 'localhost';
-$db_name = 'school_supervision';
-$db_user = 'root';
-$db_pass = '';
+$db_host = 'localhost:3306';
+$db_name = 'schoolos_ClassroomSupervision';
+$db_user = 'ClassroomSupervision';
+$db_pass = ' lp8t@Spe!pCBq04u';
 
 // โหลดข้อมูลการเชื่อมต่อจากไฟล์ที่บันทึกไว้ในระบบอัตโนมัติ
 if (file_exists(DB_CONFIG_FILE)) {
@@ -57,8 +57,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_db_config
 
 // เริ่มต้นพยายามเชื่อมต่อฐานข้อมูล PDO
 try {
+    // แยก host และ port หากมีการระบุมาในรูปแบบ host:port เช่น localhost:3306
+    $host_parts = explode(':', $db_host);
+    if (count($host_parts) > 1) {
+        $dsn = "mysql:host={$host_parts[0]};port={$host_parts[1]};charset=utf8mb4";
+    } else {
+        $dsn = "mysql:host={$db_host};charset=utf8mb4";
+    }
+
     // 1. พยายามเชื่อมต่อแบบปกติก่อน
-    $pdo = new PDO("mysql:host={$db_host};charset=utf8mb4", $db_user, $db_pass, [
+    $pdo = new PDO($dsn, $db_user, $db_pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
