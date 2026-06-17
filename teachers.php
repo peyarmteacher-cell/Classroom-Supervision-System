@@ -36,6 +36,25 @@ if ($edit_id) {
     }
 }
 
+// ล้างข้อมูลจำลองสำหรับการทดสอบระบบเพื่อเตรียมพร้อมใช้งานจริง
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_clear_mock_data'])) {
+    // 1. ลบรายงานนิเทศทั้งหมด (ตาราง supervisions)
+    $pdo->exec("DELETE FROM `supervisions` WHERE 1");
+    
+    // 2. ลบคุณครูจำลองและบัญชีของครูตาม ID
+    $pdo->exec("DELETE FROM `users` WHERE `username` IN ('teacher_t1', 'teacher_t2', 'teacher_t3')");
+    $pdo->exec("DELETE FROM `teachers` WHERE `teacher_id` IN ('T-001', 'T-002', 'T-003')");
+    
+    // 3. ปักธงระบบว่าได้ผ่านการล้าง/ลงข้อมูลแล้วเพื่อไม่ให้คุณครูจำลองงอกกลับมาใหม่อีก
+    $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) 
+                VALUES ('system_init_seeded', '1') 
+                ON DUPLICATE KEY UPDATE `setting_value` = '1'");
+
+    $success_msg = 'ระบบได้ทำการล้างข้อมูลจำลอง ทั้งประวัตินิเทศ และคุณครูทดสอบ (T-001 ถึง T-003) ออกจากสารบบเรียบร้อยแล้ว พร้อมต้อนรับข้อมูลจริงของโรงเรียนทันทีครับ';
+    header("Location: teachers.php?success_msg=" . urlencode($success_msg));
+    exit;
+}
+
 // ลบคุณครูออกจากระดับสารบบถาวร
 if (isset($_GET['delete_id'])) {
     $del_id = $_GET['delete_id'];
@@ -381,6 +400,20 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                 <div class="bg-blue-50/50 border border-dashed border-blue-200 text-blue-900 p-3 rounded-lg text-[10.5px] leading-relaxed space-y-1 font-medium">
                     <span class="font-bold flex items-center gap-1">🔑 รายละเอียดความมั่นคงปลอดภัย:</span>
                     <p>เมื่อเพิ่มครู ระบบจะออกไอดีล็อกอินอัตโนมัติเพื่อใช้ประเมินตนเองหรือสืบค้นประวัติ โดยมีชื่อผู้ใช้งานดังตารางขวามือ และมีรหัสผ่านเริ่มต้นร่วมกันคือ <code class="bg-[#EFF6FF] text-[#0A3370] px-1 font-extrabold rounded">123456</code> เสมอ</p>
+                </div>
+
+                <!-- เครื่องมือล้างข้อมูลจำลองเพื่อขึ้นระบบจริง -->
+                <div class="bg-rose-50 border border-rose-250 p-4 rounded-xl space-y-3">
+                    <span class="font-extrabold text-rose-800 text-[11px] block flex items-center gap-1.5">🛠️ การเตรียมความพร้อมขึ้นระบบจริง</span>
+                    <p class="text-[10px] text-slate-500 leading-normal">
+                        ท่านสามารถล้างข้อมูลคุณครูตัวอย่างจำลอง (ครูมาลี, ครูสมยศ, ครูดรุณี) และเคลียร์รายงานบันทึกประเมินคะแนนนิเทศที่ใช้ทดสอบออกทั้งหมดอย่างสะอาด พร้อมปักธงให้รหัสครูจำลองไม่กลับมางอกซ้ำอีก เมื่อกดล้างข้อมูลระบบจะเปิดโอกาสให้ป้อนข้อมูลบุคลากรครูจริงทันที
+                    </p>
+                    <form method="POST" onsubmit="return confirm('⚠️ คำเตือน: ระบบจะดำเนินการเคลียร์ประวัติคะแนนนิเทศ และนำบัญชีคุณครูจำลอง T-001 ถึง T-003 ออกจากข้อมูลถาวร เพื่อเตรียมใช้งานระบบจริง? ประสงค์ดำเนินการ?')">
+                        <input type="hidden" name="action_clear_mock_data" value="1">
+                        <button type="submit" class="w-full py-2 bg-rose-600 hover:bg-rose-750 text-white text-[10.5px] font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-1 cursor-pointer">
+                            🗑️ ล้างข้อมูลจำลองและผลนิเทศทดสอบทั้งหมด
+                        </button>
+                    </form>
                 </div>
             </div>
 

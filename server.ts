@@ -20,31 +20,30 @@ const DB_FILE = path.join(DATA_DIR, "database.json");
 
 // Define Default Evaluation Items
 const DEFAULT_EVAL_ITEMS: EvaluationItem[] = [
-  // หมวดที่ 1
-  { item_id: 1, category: "หมวดที่ 1 สภาพห้องเรียน", item_name: "มีป้ายนิเทศเพื่อเผยแพร่ข่าวสารและความรู้ต่าง ๆ", max_score: 5 },
-  { item_id: 2, category: "หมวดที่ 1 สภาพห้องเรียน", item_name: "มีป้ายแสดงข้อมูลสถิติของห้องเรียนที่เป็นปัจจุบัน", max_score: 5 },
-  { item_id: 3, category: "หมวดที่ 1 สภาพห้องเรียน", item_name: "มีสัญลักษณ์ชาติ ศาสนา พระมหากษัตริย์", max_score: 5 },
-  { item_id: 4, category: "หมวดที่ 1 สภาพห้องเรียน", item_name: "มีการแสดงผลงานนักเรียน", max_score: 5 },
-  { item_id: 5, category: "หมวดที่ 1 สภาพห้องเรียน", item_name: "บรรยากาศในห้องเรียนเอื้อต่อการเรียนรู้", max_score: 5 },
-  // หมวดที่ 2
-  { item_id: 6, category: "หมวดที่ 2 การบริหารจัดการห้องเรียน", item_name: "ใช้การเสริมแรงเชิงบวก", max_score: 5 },
-  { item_id: 7, category: "หมวดที่ 2 การบริหารจัดการห้องเรียน", item_name: "ใช้วิธีการทำงานเป็นกลุ่ม", max_score: 5 },
-  { item_id: 8, category: "หมวดที่ 2 การบริหารจัดการห้องเรียน", item_name: "นักเรียนทุกคนมีส่วนร่วมในการจัดการเรียนรู้", max_score: 5 },
-  // หมวดที่ 3
-  { item_id: 9, category: "หมวดที่ 3 ครูผู้สอน", item_name: "มีการจัดทำแผนการจัดการเรียนรู้", max_score: 5 },
-  { item_id: 10, category: "หมวดที่ 3 ครูผู้สอน", item_name: "จัดกิจกรรมการเรียนรู้เน้นผู้เรียนเป็นสำคัญ", max_score: 5 },
-  { item_id: 11, category: "หมวดที่ 3 ครูผู้สอน", item_name: "ใช้สื่อเทคโนโลยีในการจัดการเรียนรู้", max_score: 5 },
-  { item_id: 12, category: "หมวดที่ 3 ครูผู้สอน", item_name: "มีข้อมูลนักเรียนเป็นรายบุคคล", max_score: 5 },
-  // หมวดที่ 4
-  { item_id: 13, category: "หมวดที่ 4 การปฏิบัติตนของครู", item_name: "มีวินัยในชั้นเรียนเพื่อการพัฒนาการเรียนรู้", max_score: 5 },
-  { item_id: 14, category: "หมวดที่ 4 การปฏิบัติตนของครู", item_name: "ดูแลเอาใจใส่นักเรียนอย่างทั่วถึง", max_score: 5 },
-  { item_id: 15, category: "หมวดที่ 4 การปฏิบัติตนของครู", item_name: "แต่งกายเหมาะสมกับความเป็นครู", max_score: 5 },
-  // หมวดที่ 5
-  { item_id: 16, category: "หมวดที่ 5 นักเรียน", item_name: "ตั้งใจปฏิบัติกิจกรรมการเรียนที่ได้รับมอบหมาย", max_score: 5 },
-  { item_id: 17, category: "หมวดที่ 5 นักเรียน", item_name: "นักเรียนบรรลุจุดมุ่งหมายการเรียนรู้", max_score: 5 },
-  { item_id: 18, category: "หมวดที่ 5 นักเรียน", item_name: "นักเรียนกระตือรือร้นและกล้าซักถามครู", max_score: 5 },
-  { item_id: 19, category: "หมวดที่ 5 นักเรียน", item_name: "นักเรียนมีระเบียบวินัย", max_score: 5 },
-  { item_id: 20, category: "หมวดที่ 5 นักเรียน", item_name: "นักเรียนแต่งกายสะอาดถูกต้องตามระเบียบ", max_score: 5 }
+  // 1. สภาพห้องเรียน
+  { item_id: 1, category: "1. สภาพห้องเรียน", item_name: "มีป้ายนิเทศเพื่อเผยแพร่ข่าวสารและความรู้ต่าง ๆ", max_score: 5 },
+  { item_id: 2, category: "1. สภาพห้องเรียน", item_name: "มีป้ายแสดงข้อมูลสถิติของห้องเรียนที่เป็นปัจจุบัน", max_score: 5 },
+  { item_id: 3, category: "1. สภาพห้องเรียน", item_name: "มีสัญลักษณ์ชาติ ศาสนา พระมหากษัตริย์", max_score: 5 },
+  { item_id: 4, category: "1. สภาพห้องเรียน", item_name: "มีการแสดงผลงานนักเรียน", max_score: 5 },
+  { item_id: 5, category: "1. สภาพห้องเรียน", item_name: "บรรยากาศในห้องเรียนเอื้อต่อการเรียนรู้", max_score: 5 },
+  // 2. การบริหารจัดการห้องเรียน
+  { item_id: 6, category: "2. การบริหารจัดการห้องเรียน", item_name: "ใช้การเสริมแรงเชิงบวกในการจัดการเรียนรู้ (Positive Reinforcement)", max_score: 5 },
+  { item_id: 7, category: "2. การบริหารจัดการห้องเรียน", item_name: "ใช้วิธีการทำงานเป็นกลุ่ม (Working in Groups)", max_score: 5 },
+  { item_id: 8, category: "2. การบริหารจัดการห้องเรียน", item_name: "นักเรียนทุกคนมีส่วนร่วมในการจัดการเรียนรู้ (Involve Everyone)", max_score: 5 },
+  // 3. ครูผู้สอน
+  { item_id: 9, category: "3. ครูผู้สอน", item_name: "มีการจัดทำแผนการจัดการเรียนรู้", max_score: 5 },
+  { item_id: 10, category: "3. ครูผู้สอน", item_name: "จัดกิจกรรมการเรียนรู้เน้นผู้เรียนเป็นสำคัญ", max_score: 5 },
+  { item_id: 11, category: "3. ครูผู้สอน", item_name: "ใช้สื่อเทคโนโลยีในการจัดการเรียนรู้", max_score: 5 },
+  { item_id: 12, category: "3. ครูผู้สอน", item_name: "มีข้อมูลนักเรียนเป็นรายบุคคล", max_score: 5 },
+  { item_id: 13, category: "3. ครูผู้สอน", item_name: "มีวิจัยในชั้นเรียนเพื่อการพัฒนาการเรียนรู้", max_score: 5 },
+  { item_id: 14, category: "3. ครูผู้สอน", item_name: "ดูแลเอาใจใส่นักเรียนอย่างทั่วถึง", max_score: 5 },
+  { item_id: 15, category: "3. ครูผู้สอน", item_name: "แต่งกายเหมาะสมกับความเป็นครู", max_score: 5 },
+  // 4. นักเรียน
+  { item_id: 16, category: "4. นักเรียน", item_name: "ตั้งใจปฏิบัติกิจกรรมการเรียนที่ได้รับมอบหมาย", max_score: 5 },
+  { item_id: 17, category: "4. นักเรียน", item_name: "นักเรียนบรรลุจุดมุ่งหมาย", max_score: 5 },
+  { item_id: 18, category: "4. นักเรียน", item_name: "นักเรียนกระตือรือร้นและกล้าซักถามครู", max_score: 5 },
+  { item_id: 19, category: "4. นักเรียน", item_name: "นักเรียนมีระเบียบวินัย", max_score: 5 },
+  { item_id: 20, category: "4. นักเรียน", item_name: "นักเรียนแต่งกายสะอาดถูกต้องตามระเบียบ", max_score: 5 }
 ];
 
 // Helper to load database

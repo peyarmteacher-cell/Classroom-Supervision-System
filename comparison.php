@@ -17,13 +17,12 @@ $user_role = $_SESSION['role'] ?? 'teacher';
 $years_list = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
 $filter_year = $_GET['filter_year'] ?? 'all';
 
-// โฮสต์จัดประเภทเกณฑ์ 5 หมวดหลักเป็นโครงสร้างอาร์เรย์
+// โฮสต์จัดประเภทเกณฑ์ 4 หมวดหลักเป็นโครงสร้างอาร์เรย์ (รวม 20 ข้อเต็ม)
 $categories = [
-    'cat1' => ['label' => 'หมวดที่ 1: การเตรียมเรียนรู้ออนไลน์', 'items' => [1, 2, 3, 4]],
-    'cat2' => ['label' => 'หมวดที่ 2: บรรยากาศแวดล้อมชั้นเรียน', 'items' => [5, 6, 7, 8]],
-    'cat3' => ['label' => 'หมวดที่ 3: เชิงรุก Active Learning', 'items' => [9, 10, 11, 12]],
-    'cat4' => ['label' => 'หมวดที่ 4: การใช้สื่อวัดประเมินไอที', 'items' => [13, 14, 15, 16]],
-    'cat5' => ['label' => 'หมวดที่ 5: พฤติกรรมอุปนิสัยผู้เรียน', 'items' => [17, 18, 19, 20]]
+    'cat1' => ['label' => '1. สภาพห้องเรียน', 'items' => [1, 2, 3, 4, 5], 'max' => 25],
+    'cat2' => ['label' => '2. การบริหารจัดการห้องเรียน', 'items' => [6, 7, 8], 'max' => 15],
+    'cat3' => ['label' => '3. ครูผู้สอน', 'items' => [9, 10, 11, 12, 13, 14, 15], 'max' => 35],
+    'cat4' => ['label' => '4. นักเรียน', 'items' => [16, 17, 18, 19, 20], 'max' => 25]
 ];
 
 // โหลดรายชื่อครูที่มีสิทธิ์แสดงผลในตาราง
@@ -57,12 +56,12 @@ foreach ($teachers as $t) {
     
     // ตั้งค่าเฉลี่ยเริ่มต้นของคะแนนแต่ละหมวดเป็น 0%
     $category_avgs = [
-        'cat1' => 0, 'cat2' => 0, 'cat3' => 0, 'cat4' => 0, 'cat5' => 0, 'overall' => 0
+        'cat1' => 0, 'cat2' => 0, 'cat3' => 0, 'cat4' => 0, 'overall' => 0
     ];
 
     if ($total_done_sessions > 0) {
         $scores_sum_by_cat = [
-            'cat1' => 0, 'cat2' => 0, 'cat3' => 0, 'cat4' => 0, 'cat5' => 0
+            'cat1' => 0, 'cat2' => 0, 'cat3' => 0, 'cat4' => 0
         ];
         
         foreach ($records_scores as $scores_json) {
@@ -74,8 +73,8 @@ foreach ($teachers as $t) {
                 foreach ($cat_info['items'] as $item_num) {
                     $sub_sum += (int)($scores_arr[$item_num] ?? 5);
                 }
-                // เฉลี่ยในหมวดนั้นๆ (เต็ม 20 คะแนน เพราะหมวดละ 4 ข้อ ข้อละ 5 คะแนน)
-                $scores_sum_by_cat[$cat_key] += ($sub_sum / 20) * 100;
+                // เฉลี่ยในหมวดนั้นๆ เต็มคะแนนของหมวด
+                $scores_sum_by_cat[$cat_key] += ($sub_sum / $cat_info['max']) * 100;
             }
         }
         
@@ -85,7 +84,7 @@ foreach ($teachers as $t) {
             $category_avgs[$cat_key] = round($scores_sum_by_cat[$cat_key] / $total_done_sessions, 1);
             $overall_sum += $category_avgs[$cat_key];
         }
-        $category_avgs['overall'] = round($overall_sum / 5, 1);
+        $category_avgs['overall'] = round($overall_sum / 4, 1);
     }
 
     $comparison_data[] = [
@@ -208,11 +207,10 @@ foreach ($teachers as $t) {
                             <th class="p-3">ครูผู้รับระเบียนนิเทศ</th>
                             <th class="p-3">ตำแหน่ง / ดำรงงาน</th>
                             <th class="p-3 text-center">ประเมินสะสม</th>
-                            <th class="p-3 text-center text-blue-900">หมวด 1</th>
-                            <th class="p-3 text-center text-purple-800">หมวด 2</th>
-                            <th class="p-3 text-center text-amber-700">หมวด 3</th>
-                            <th class="p-3 text-center text-teal-800">หมวด 4</th>
-                            <th class="p-3 text-center text-indigo-800">หมวด 5</th>
+                            <th class="p-3 text-center text-blue-900">หมวด 1 (ห้องเรียน)</th>
+                            <th class="p-3 text-center text-purple-800">หมวด 2 (บริหารหลัก)</th>
+                            <th class="p-3 text-center text-amber-700">หมวด 3 (ครูผู้สอน)</th>
+                            <th class="p-3 text-center text-teal-800">หมวด 4 (นักเรียน)</th>
                             <th class="p-3 text-center bg-[#0A3370]/5 text-[#0A3370] font-black">เฉลี่ยรวม (%)</th>
                         </tr>
                     </thead>
@@ -235,7 +233,7 @@ foreach ($teachers as $t) {
                                 </td>
 
                                 <!-- Categories averages with beautiful background color weight indicators based on grades values -->
-                                <?php foreach (['cat1', 'cat2', 'cat3', 'cat4', 'cat5'] as $ckey): 
+                                <?php foreach (['cat1', 'cat2', 'cat3', 'cat4'] as $ckey): 
                                     $val = $data['averages'][$ckey];
                                     $col = 'text-slate-400';
                                     if ($val >= 90) $col = 'text-emerald-750 font-bold';
@@ -259,12 +257,11 @@ foreach ($teachers as $t) {
             </div>
 
             <!-- Legends guides explanation -->
-            <div class="bg-[#FAF8F5] p-3 rounded-xl border border-dashed border-slate-200 grid grid-cols-1 sm:grid-cols-5 gap-3 text-slate-500 text-[10px] leading-relaxed select-none">
-                <div><strong>หมวด 1:</strong> การเตรียมเรียนรู้อันดับต้นและการจัดแผนการเรียนการสอนรายปี</div>
-                <div><strong>หมวด 2:</strong> การจัดบรรยากาศชั้นเรียน สภาพความพึงประสงค์กายภาพและความมั่นคงปลอดภัย</div>
-                <div><strong>หมวด 3:</strong> กระบวนการเชิงรุก (Active Learning) จากทฤษฎีสู่การปฏิบัติร่วมกัน</div>
-                <div><strong>หมวด 4:</strong> เครื่องมือวัด ตรวจสะท้อน และสื่อไอทีเทคโนโลยีการสอนสมัยใหม่</div>
-                <div><strong>หมวด 5:</strong> ผลงานสัมฤทธิ์ปลายคาบและพฤติกรรมอรรถคุณลักษณะของนักเรียน</div>
+            <div class="bg-[#FAF8F5] p-3 rounded-xl border border-dashed border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-3 text-slate-500 text-[10px] leading-relaxed select-none">
+                <div><strong>หมวด 1 สภาพห้องเรียน:</strong> มีป้ายนิเทศข้อมูล ตราสัญลักษณ์ชาติและการจัดผลงานและบรรยากาศห้องเรียนเอื้อการเรียนศึกษา</div>
+                <div><strong>หมวด 2 การบริหารจัดการห้องเรียน:</strong> บูรณาการเสริมแรงเชิงบวก ทำงานกลุ่ม เพื่อนช่วยเพื่อนและการมีส่วนร่วมครบรส</div>
+                <div><strong>หมวด 3 ครูผู้สอน:</strong> สตรีมหลักสูตร แผนกระบวนการ สื่อเทคโนโลยีไอที ทะเบียนดูแลวิจัยและบุคลิกแต่งกาย</div>
+                <div><strong>หมวด 4 นักเรียน:</strong> ปฏิบัติงานตรงเป้า บรรลุปลายทาง กระตือรือร้น มีระเบียบวินัยแต่งกายสะอาดระเบียบงาม</div>
             </div>
         </div>
 
