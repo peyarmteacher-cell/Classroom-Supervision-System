@@ -270,7 +270,7 @@ if (isset($_GET['action_export_csv'])) {
             <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center gap-4">
                 <div class="w-12 h-12 bg-blue-50 text-blue-900 rounded-xl flex items-center justify-center text-xl shadow-xs font-bold">👥</div>
                 <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">กำลังพลครูทั้งหมด</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">จำนวนคุณครูทั้งหมด</div>
                     <div class="text-xl font-bold mt-0.5 text-slate-800"><?php echo $total_teachers; ?> ท่าน</div>
                 </div>
             </div>

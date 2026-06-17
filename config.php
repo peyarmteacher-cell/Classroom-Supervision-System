@@ -229,46 +229,53 @@ try {
         }
     }
 
-    // 3. ลงคุณครูตั้งต้นตัวอย่าง
-    $check_teachers = $pdo->query("SELECT COUNT(*) FROM `teachers`")->fetchColumn();
-    if ($check_teachers == 0) {
-        $teachers = [
-            ['T-001', 'นางสาวมาลี รักการเรียน', 'ครู คศ.1', 'กลุ่มสาระการเรียนรู้ภาษาไทย', '081-2345678', 'teacher_t1'],
-            ['T-002', 'นายสมยศ สดใส', 'ครูชำนาญการ', 'กลุ่มสาระการเรียนรู้คณิตศาสตร์', '089-8765432', 'teacher_t2'],
-            ['T-003', 'นางดรุณี ดวงดี', 'ครูชำนาญการพิเศษ', 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี', '082-9988776', 'teacher_t3']
-        ];
-        $stmt = $pdo->prepare("INSERT INTO `teachers` (`teacher_id`, `teacher_name`, `position`, `subject_group`, `phone`, `username`) VALUES (?, ?, ?, ?, ?, ?)");
-        foreach ($teachers as $t) {
-            $stmt->execute($t);
+    // 3. ลงคุณครูตั้งต้นตัวอย่าง (รวมถึง ปีการศึกษา และชั้นเรียน จะยอมให้ทำงานเมื่อยังไม่มีการทำเครื่องหมายระบบลงข้อมูลเริ่มต้นแล้วเท่านั้น ป้องกันการคืนค่าเมื่อผู้ใช้ทำการลบออกเพื่อตั้งค่าจริง)
+    $system_init_seeded = $pdo->query("SELECT COUNT(*) FROM `school_settings` WHERE `setting_key` = 'system_init_seeded'")->fetchColumn();
+    
+    if ($system_init_seeded == 0) {
+        $check_teachers = $pdo->query("SELECT COUNT(*) FROM `teachers`")->fetchColumn();
+        if ($check_teachers == 0) {
+            $teachers = [
+                ['T-001', 'นางสาวมาลี รักการเรียน', 'ครู คศ.1', 'กลุ่มสาระการเรียนรู้ภาษาไทย', '081-2345678', 'teacher_t1'],
+                ['T-002', 'นายสมยศ สดใส', 'ครูชำนาญการ', 'กลุ่มสาระการเรียนรู้คณิตศาสตร์', '089-8765432', 'teacher_t2'],
+                ['T-003', 'นางดรุณี ดวงดี', 'ครูชำนาญการพิเศษ', 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี', '082-9988776', 'teacher_t3']
+            ];
+            $stmt = $pdo->prepare("INSERT INTO `teachers` (`teacher_id`, `teacher_name`, `position`, `subject_group`, `phone`, `username`) VALUES (?, ?, ?, ?, ?, ?)");
+            foreach ($teachers as $t) {
+                $stmt->execute($t);
+            }
         }
-    }
 
-    // 4. ลงปีการศึกษาตั้งต้นตัวอย่าง
-    $check_years = $pdo->query("SELECT COUNT(*) FROM `academic_years`")->fetchColumn();
-    if ($check_years == 0) {
-        $years = [
-            ['YR2569-1', '2569', '1'],
-            ['YR2569-2', '2569', '2']
-        ];
-        $stmt = $pdo->prepare("INSERT INTO `academic_years` (`year_id`, `year`, `semester`) VALUES (?, ?, ?)");
-        foreach ($years as $y) {
-            $stmt->execute($y);
+        // 4. ลงปีการศึกษาตั้งต้นตัวอย่าง
+        $check_years = $pdo->query("SELECT COUNT(*) FROM `academic_years`")->fetchColumn();
+        if ($check_years == 0) {
+            $years = [
+                ['YR2569-1', '2569', '1'],
+                ['YR2569-2', '2569', '2']
+            ];
+            $stmt = $pdo->prepare("INSERT INTO `academic_years` (`year_id`, `year`, `semester`) VALUES (?, ?, ?)");
+            foreach ($years as $y) {
+                $stmt->execute($y);
+            }
         }
-    }
 
-    // 5. ลงระดับชั้นเรียนตั้งต้นตัวอย่างเพื่อความสะดวก
-    $check_classes = $pdo->query("SELECT COUNT(*) FROM `classrooms`")->fetchColumn();
-    if ($check_classes == 0) {
-        $default_classes = [
-            'ประถมศึกษาปีที่ 1', 'ประถมศึกษาปีที่ 2', 'ประถมศึกษาปีที่ 3',
-            'ประถมศึกษาปีที่ 4', 'ประถมศึกษาปีที่ 5', 'ประถมศึกษาปีที่ 6',
-            'มัธยมศึกษาปีที่ 1', 'มัธยมศึกษาปีที่ 2', 'มัธยมศึกษาปีที่ 3',
-            'มัธยมศึกษาปีที่ 4', 'มัธยมศึกษาปีที่ 5', 'มัธยมศึกษาปีที่ 6'
-        ];
-        $stmt_class = $pdo->prepare("INSERT IGNORE INTO `classrooms` (`class_name`) VALUES (?)");
-        foreach ($default_classes as $cls) {
-            $stmt_class->execute([$cls]);
+        // 5. ลงระดับชั้นเรียนตั้งต้นตัวอย่างเพื่อความสะดวก
+        $check_classes = $pdo->query("SELECT COUNT(*) FROM `classrooms`")->fetchColumn();
+        if ($check_classes == 0) {
+            $default_classes = [
+                'ประถมศึกษาปีที่ 1', 'ประถมศึกษาปีที่ 2', 'ประถมศึกษาปีที่ 3',
+                'ประถมศึกษาปีที่ 4', 'ประถมศึกษาปีที่ 5', 'ประถมศึกษาปีที่ 6',
+                'มัธยมศึกษาปีที่ 1', 'มัธยมศึกษาปีที่ 2', 'มัธยมศึกษาปีที่ 3',
+                'มัธยมศึกษาปีที่ 4', 'มัธยมศึกษาปีที่ 5', 'มัธยมศึกษาปีที่ 6'
+            ];
+            $stmt_class = $pdo->prepare("INSERT IGNORE INTO `classrooms` (`class_name`) VALUES (?)");
+            foreach ($default_classes as $cls) {
+                $stmt_class->execute([$cls]);
+            }
         }
+
+        // ลงบันทึกค่าสถานะตั้งต้นในตารางตั้งค่าเพื่อล็อกไม่ให้กลับมารีเซ็ตอีก
+        $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) VALUES ('system_init_seeded', '1')");
     }
 
     // 6. ลงตั้งค่าระดับบริการตั้งต้นตัวอย่าง

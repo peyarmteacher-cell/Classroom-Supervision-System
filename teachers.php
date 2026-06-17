@@ -387,7 +387,7 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
             <!-- List of current teachers -->
             <div class="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm text-xs space-y-4">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-extrabold text-[#0A3370] text-sm">รายนามลิสต์กำลังพลครูในสถาบันทั้งหมด (<?php echo count($all_teachers); ?> ท่าน)</h3>
+                    <h3 class="font-extrabold text-[#0A3370] text-sm">รายชื่อคุณครูทั้งหมดในโรงเรียน (<?php echo count($all_teachers); ?> ท่าน)</h3>
                     <span class="text-[10px] text-slate-400">ข้อมูลอัปเดตแบบเรียลไทม์จากเซิร์ฟเวอร์โรงเรียน</span>
                 </div>
 
