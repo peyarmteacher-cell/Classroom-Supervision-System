@@ -278,6 +278,9 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
             <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
                 📅 สารบบปีการศึกษา
             </a>
+            <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
+                🚪 ระดับชั้นเรียน
+            </a>
             <a href="profile.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
                 ⚙️ ตั้งค่าบัญชีของฉัน
             </a>

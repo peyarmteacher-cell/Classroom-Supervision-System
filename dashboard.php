@@ -241,7 +241,7 @@ if (isset($_GET['action_export_csv'])) {
                     📅 สารบบปีการศึกษา
                 </a>
                 <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
-                    🚪 สารบบระดับชั้นเรียน
+                    🚪 ระดับชั้นเรียน
                 </a>
             <?php endif; ?>
             <a href="profile.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">

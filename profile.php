@@ -23,6 +23,24 @@ $stmt_u->execute([$session_user]);
 $u_data = $stmt_u->fetch();
 
 if (!$u_data) {
+    if ($user_role === 'teacher') {
+        $stmt_t = $pdo->prepare("SELECT * FROM teachers WHERE username = ?");
+        $stmt_t->execute([$session_user]);
+        $teacher_data = $stmt_t->fetch();
+        if ($teacher_data) {
+            // สร้างข้อมูลลงในตาราง users อัตโนมัติ
+            $hashed_pwd = password_hash('123456', PASSWORD_DEFAULT);
+            $stmt_ins = $pdo->prepare("INSERT INTO users (username, password, fullname, role) VALUES (?, ?, ?, 'teacher')");
+            $stmt_ins->execute([$session_user, $hashed_pwd, $teacher_data['teacher_name']]);
+            
+            // โหลดข้อมูลใหม่อีกครั้ง
+            $stmt_u->execute([$session_user]);
+            $u_data = $stmt_u->fetch();
+        }
+    }
+}
+
+if (!$u_data) {
     header("Location: logout.php");
     exit;
 }

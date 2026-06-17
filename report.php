@@ -139,7 +139,7 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
 
         <!-- Section 1: Detailed Metadata Grid -->
         <div class="space-y-3">
-            <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 1: ข้อมูลทั่วไปประจำคาบเรียนปฏิบัติการประเมิน</h3>
+            <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 1 ข้อมูลผู้รับการประเมิน</h3>
             <div class="flex flex-col sm:flex-row gap-5 items-start">
                 <!-- ส่วนแสดงภาพระบุประจำตัวของคุณครูผู้รับประกันนิเทศ -->
                 <div class="w-20 h-24 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center shadow-inner relative">
@@ -192,7 +192,7 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
 
         <!-- Section 2: Core Matrix Table items list scores -->
         <div class="space-y-3 avoid-break">
-            <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 2: รายละเอียดผลมาตราส่วนเกณฑ์บันทึกประเมินรายตัวตรรกะ (20 คุณสมบัติข้อ)</h3>
+            <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 2 ผลการบันทึกการประเมินการนิเทศ</h3>
             <table class="w-full text-left border-collapse border border-slate-200">
                 <thead>
                     <tr class="bg-slate-50 text-[10px] text-slate-500 font-bold">
@@ -246,7 +246,7 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
 
         <!-- Section 4: Qualitative commentaries details avoid break during PDF print sheets -->
         <div class="space-y-4 avoid-break">
-            <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 3: บทพรรณนาเชิงลึกเพื่อการพัฒนากำลังครู</h3>
+            <h3 class="font-extrabold text-[#0A3370] text-[13px] border-b pb-1">ตอนที่ 3 คำแนะนำเพิ่มเติมเพื่อการพัฒนา</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 leading-relaxed font-semibold">
                 
                 <div class="space-y-1 bg-slate-50/30 p-3 rounded-xl border">
@@ -283,16 +283,16 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
 
         <!-- Section 6: Institutional Signatures Fields (Dual sign lines block) -->
         <div class="pt-8 grid grid-cols-2 gap-8 avoid-break text-center font-semibold text-slate-700">
-            <!-- Left Evaluator column sign -->
-            <div class="space-y-10">
-                <p>ลงชื่อ................................................................... ผู้นิเทศ<br>( <?php echo htmlspecialchars($rec['evaluator_name']); ?> )</p>
-                <p class="text-[10px] text-slate-400 font-medium">ตำแหน่ง: <?php echo htmlspecialchars($rec['evaluator_position']); ?></p>
-            </div>
-
-            <!-- Right evaluated Teacher column sign -->
+            <!-- Left evaluated Teacher column sign -->
             <div class="space-y-10">
                 <p>ลงชื่อ................................................................... ผู้รับการประเมินนิเทศ<br>( <?php echo htmlspecialchars($rec['teacher_name']); ?> )</p>
                 <p class="text-[10px] text-slate-400 font-medium">ตำแหน่ง: <?php echo htmlspecialchars($rec['position']); ?></p>
+            </div>
+
+            <!-- Right Evaluator column sign (Director / Supervisor) -->
+            <div class="space-y-10">
+                <p>ลงชื่อ................................................................... ผู้นิเทศ<br>( <?php echo htmlspecialchars($rec['evaluator_name']); ?> )</p>
+                <p class="text-[10px] text-slate-400 font-medium">ตำแหน่ง: <?php echo htmlspecialchars($rec['evaluator_position']); ?></p>
             </div>
         </div>
 

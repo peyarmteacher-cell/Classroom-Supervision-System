@@ -38,6 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $teacher = $stmt->fetch();
 
             if ($teacher && $password === '123456') {
+                // บันทึกใส่ users เพื่อป้องกันปัญหา profile.php
+                $stmt_u_chk = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+                $stmt_u_chk->execute([$teacher['username']]);
+                if ($stmt_u_chk->fetchColumn() == 0) {
+                    $hashed_pwd = password_hash('123456', PASSWORD_DEFAULT);
+                    $stmt_ins = $pdo->prepare("INSERT INTO users (username, password, fullname, role) VALUES (?, ?, ?, 'teacher')");
+                    $stmt_ins->execute([$teacher['username'], $hashed_pwd, $teacher['teacher_name']]);
+                }
                 $_SESSION['username'] = $teacher['username'];
                 $_SESSION['fullname'] = $teacher['teacher_name'];
                 $_SESSION['role'] = 'teacher';

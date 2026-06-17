@@ -1,6 +1,6 @@
 <?php
 // ==========================================
-// classrooms.php - สารบบจัดเตรียมระดับชั้นสำหรับการนิเทศอย่างมีมาตรฐาน
+// classrooms.php - จัดเตรียมระดับชั้นสำหรับการนิเทศอย่างมีมาตรฐาน
 // ==========================================
 
 require_once 'config.php';
@@ -154,7 +154,7 @@ $all_classrooms = $pdo->query("SELECT * FROM classrooms ORDER BY class_name ASC"
                     📅 สารบบปีการศึกษา
                 </a>
                 <a href="classrooms.php" class="px-4 py-2 bg-[#0A3370] text-white rounded-xl shadow-xs font-bold flex items-center gap-1.5">
-                    🚪 สารบบระดับชั้นเรียน
+                    🚪 ระดับชั้นเรียน
                 </a>
             <?php endif; ?>
             <a href="profile.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
@@ -213,7 +213,7 @@ $all_classrooms = $pdo->query("SELECT * FROM classrooms ORDER BY class_name ASC"
             <div class="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm text-xs space-y-4">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
-                        <h3 class="font-extrabold text-[#0A3370] text-sm">สารบบระดับชั้นเรียนที่มีอยู่ในฐานข้อมูล</h3>
+                        <h3 class="font-extrabold text-[#0A3370] text-sm">ระดับชั้นเรียนที่มีอยู่ในฐานข้อมูล</h3>
                         <p class="text-[10px] text-slate-400 mt-0.5">ตารางตัวเลือกและลำดับระดับชั้นในทำเนียบนิเทศ (ทั้งหมด <?php echo count($all_classrooms); ?> ชั้นเรียน)</p>
                     </div>
                 </div>
