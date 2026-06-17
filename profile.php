@@ -215,6 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
         }
     }
 }
+}
 ?>
 <!DOCTYPE html>
 <html lang="th">
