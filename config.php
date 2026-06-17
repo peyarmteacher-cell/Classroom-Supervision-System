@@ -149,7 +149,7 @@ try {
         `comments_strengths` TEXT DEFAULT NULL,
         `comments_suggestions` TEXT DEFAULT NULL,
         `comments_development` TEXT DEFAULT NULL,
-        `photos_json` TEXT DEFAULT NULL,
+        `photos_json` MEDIUMTEXT DEFAULT NULL,
         `evaluator_name` VARCHAR(150) NOT NULL,
         `evaluator_position` VARCHAR(100) NOT NULL,
         `status` VARCHAR(20) NOT NULL DEFAULT 'draft',
@@ -159,6 +159,13 @@ try {
         CONSTRAINT `fk_supervision_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`teacher_id`) ON DELETE CASCADE,
         CONSTRAINT `fk_supervision_year` FOREIGN KEY (`year_id`) REFERENCES `academic_years` (`year_id`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    // ดำเนินการอัปเดตชนิดคอลัมน์ photos_json ของระบบเดิม (หากมีอยู่แล้ว) ให้เป็น MEDIUMTEXT เพื่อรองรับภาพความละเอียดเซ็นเซอร์มือถือ
+    try {
+        $pdo->exec("ALTER TABLE `supervisions` MODIFY COLUMN `photos_json` MEDIUMTEXT DEFAULT NULL;");
+    } catch (Exception $alter_err) {
+        // เงียบไว้หากดำเนินการเสร็จสิ้นแล้ว หรือฐานข้อมูลไม่รองรับคำสั่ง ALTER
+    }
 
     // ตารางบัญชีผู้ใช้ระบบ
     $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (

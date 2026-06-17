@@ -607,7 +607,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             renderUnifiedGallery();
         }
 
-        // ฟังก์ชันบีบอัดรูปภาพด้วยแคนวาสประสิทธิภาพสูงเพื่อสุขภาวะเซิร์ฟเวอร์
+        // ฟังก์ชันบีบอัดรูปภาพด้วยแคนวาสประสิทธิภาพสูงและประหยัดคืนหน่วยความจำโมบาย
         function handleNewPhotoSelection() {
             const input = document.getElementById('supervision_photos_files');
             if (!input || !input.files || input.files.length === 0) return;
@@ -632,64 +632,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                     return;
                 }
 
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.onload = function() {
-                        const MAX_WIDTH = 1024;
-                        const MAX_HEIGHT = 1024;
-                        let width = img.width;
-                        let height = img.height;
+                // วิธีการประหยัดหน่วยความจำระดับก้าวหน้าบนมือถือ: เลี่ยงการใช้ FileReader โหลด Base64 ดิบโดยตรง
+                // หันมาใช้ URL.createObjectURL กวาดสตรีมสดเข้าสู่ Image ซิกแนลความจำต่ำทันที
+                const tempObjectUrl = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = function() {
+                    const MAX_WIDTH = 800;   // ปรับสัดส่วนเป็น 800px ประหยัดเนื้อที่ใน SQL คอลัมน์อย่างยั่งยืน
+                    const MAX_HEIGHT = 800;
+                    let width = img.width;
+                    let height = img.height;
 
-                        if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width;
-                                width = MAX_WIDTH;
-                            }
-                        } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height;
-                                height = MAX_HEIGHT;
-                            }
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
                         }
-
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        // คุณภาพความละเอียด 0.70 ขนาดรวดเร็วเหลือเพียงหลักร้อย KB
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.70);
-                        
-                        if (accumulatedCompressedPhotos.length < 4) {
-                            accumulatedCompressedPhotos.push(compressedBase64);
-                            renderUnifiedGallery();
-                        } else {
-                            alert('ขออภัยครับ! ระบบจำกัดให้เพิ่มภาพประกอบรายงานได้สูงสุด 4 ภาพครับ');
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
                         }
+                    }
 
-                        pendingCount--;
-                        if (pendingCount === 0 && badge) {
-                            badge.classList.add('hidden');
-                        }
-                    };
-                    img.onerror = function() {
-                        pendingCount--;
-                        if (pendingCount === 0 && badge) {
-                            badge.classList.add('hidden');
-                        }
-                    };
-                    img.src = event.target.result;
-                };
-                reader.onerror = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // ปรับค่าคุณภาพการบีบอัดเป็น 0.55 (เล็กมากเพียง 20-30KB แต่ความคมชัดรูปภาพยังดีเยี่ยมบนสมาร์ทโฟน)
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.55);
+                    
+                    if (accumulatedCompressedPhotos.length < 4) {
+                        accumulatedCompressedPhotos.push(compressedBase64);
+                        renderUnifiedGallery();
+                    } else {
+                        alert('ขออภัยครับ! ระบบจำกัดให้เพิ่มภาพประกอบรายงานได้สูงสุด 4 ภาพครับ');
+                    }
+
+                    // ลบล้าง Object URL ออกจากระบบหน่วยความจำเครื่องโทรศัพท์มือถือทันทีเมื่อใช้งานสำเร็จ
+                    URL.revokeObjectURL(tempObjectUrl);
+
                     pendingCount--;
                     if (pendingCount === 0 && badge) {
                         badge.classList.add('hidden');
                     }
                 };
-                reader.readAsDataURL(file);
+                img.onerror = function() {
+                    URL.revokeObjectURL(tempObjectUrl);
+                    pendingCount--;
+                    if (pendingCount === 0 && badge) {
+                        badge.classList.add('hidden');
+                    }
+                };
+                img.src = tempObjectUrl;
             });
 
             // ชะลอการล้างค่าอินพุตมาตรฐานเล็กน้อยเพื่อป้องกันเบราว์เซอร์มือถือหยุดกระบวนการอ่านไฟล์กลางคัน
