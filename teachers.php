@@ -255,7 +255,7 @@ $all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->f
                 <span class="text-3xl">🏫</span>
                 <div>
                     <h1 class="text-base sm:text-lg font-extrabold tracking-wide text-white leading-snug">
-                        ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน
+                        ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์
                     </h1>
                     <p class="text-[10px] text-amber-300 font-bold block uppercase tracking-wider">
                         Active Classroom Learning Supervision & Evaluation Hub

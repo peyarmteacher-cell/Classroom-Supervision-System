@@ -300,7 +300,11 @@ try {
     }
     $check_name_setting = $pdo->query("SELECT COUNT(*) FROM `school_settings` WHERE `setting_key` = 'school_name'")->fetchColumn();
     if ($check_name_setting == 0) {
-        $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) VALUES ('school_name', 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน')");
+        $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) VALUES ('school_name', 'ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์')");
+    } else {
+        // อัปเดตสถานประกอบการให้สอดรับตามความประสงค์ล่าสุด
+        $stmt_up_sname = $pdo->prepare("UPDATE `school_settings` SET `setting_value` = ? WHERE `setting_key` = 'school_name' AND `setting_value` = 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน'");
+        $stmt_up_sname->execute(['ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์']);
     }
 
 } catch (PDOException $e) {

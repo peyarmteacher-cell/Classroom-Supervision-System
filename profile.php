@@ -60,7 +60,10 @@ $current_logo = $stmt_logo->fetchColumn() ?: '';
 
 $stmt_sname = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_name'");
 $stmt_sname->execute();
-$current_school_name = $stmt_sname->fetchColumn() ?: 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน';
+$current_school_name = $stmt_sname->fetchColumn() ?: 'ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์';
+if ($current_school_name === 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน') {
+    $current_school_name = 'ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_school_settings'])) {
     if ($user_role === 'admin') {
@@ -236,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                 <span class="text-3xl">🏫</span>
                 <div>
                     <h1 class="text-base sm:text-lg font-extrabold tracking-wide text-white leading-snug">
-                        ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน
+                        ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์
                     </h1>
                     <p class="text-[10px] text-amber-300 font-bold block uppercase tracking-wider">
                         Active Classroom Learning Supervision & Evaluation Hub

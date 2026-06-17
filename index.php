@@ -96,8 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 🏫
             </div>
             <div>
-                <h1 class="text-lg font-extrabold text-[#0A3370] tracking-wide">ระบบนิเทศการจัดการเรียนการสอน</h1>
-                <p class="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Active Classroom Supervision Registry (PHP)</p>
+                <h1 class="text-base font-extrabold text-[#0A3370] tracking-tight leading-snug">ระบบนิเทศการจัดการเรียนการสอน<br>โรงเรียนบ้านหนองหว้า</h1>
+                <p class="text-[10px] text-amber-600 font-bold uppercase tracking-wider">โรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์</p>
             </div>
         </div>
 
