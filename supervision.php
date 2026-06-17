@@ -61,6 +61,8 @@ if ($edit_id) {
     }
 }
 
+$current_photos = json_decode($photos_json, true) ?: [];
+
 // โหลดทะเบียนคุณครู & ปีการศึกษามาทำ Dropdown
 $dropdown_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
 $dropdown_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
@@ -90,6 +92,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
     }
     $scores_json_str = json_encode($post_scores);
 
+    // ประมวลผลรูปภาพนิเทศชั้นเรียน
+    $uploaded_photos = [];
+    if ($edit_id) {
+        $stmt_photo = $pdo->prepare("SELECT photos_json FROM supervisions WHERE record_id = ?");
+        $stmt_photo->execute([$edit_id]);
+        $existing_photos_str = $stmt_photo->fetchColumn();
+        $uploaded_photos = json_decode($existing_photos_str ?: '[]', true) ?: [];
+    }
+
+    // ล้างรูปภาพเดิมที่เคยอัพโหลดไว้ หากระบุ
+    if (isset($_POST['clear_existing_photos']) && $_POST['clear_existing_photos'] === '1') {
+        $uploaded_photos = [];
+    }
+
+    // ตรวจสอบรูปเดี่ยวที่จะเลือกลบ
+    if (isset($_POST['remove_photo_index']) && is_array($_POST['remove_photo_index'])) {
+        foreach ($_POST['remove_photo_index'] as $remove_idx) {
+            $remove_idx = (int)$remove_idx;
+            if (isset($uploaded_photos[$remove_idx])) {
+                unset($uploaded_photos[$remove_idx]);
+            }
+        }
+        $uploaded_photos = array_values($uploaded_photos); // จัดเรียง index การวนลูปใหม่
+    }
+
+    // เพิ่มรูปภาพอัปโหลดใหม่
+    if (isset($_FILES['supervision_photos_files'])) {
+        $files = $_FILES['supervision_photos_files'];
+        if (is_array($files['name'])) {
+            $count = count($files['name']);
+            for ($i = 0; $i < $count; $i++) {
+                if ($files['error'][$i] === UPLOAD_ERR_OK) {
+                    $tmp_name = $files['tmp_name'][$i];
+                    $type = $files['type'][$i];
+                    $data = file_get_contents($tmp_name);
+                    $base64 = 'data:' . $type . ';base64,' . base64_encode($data);
+                    $uploaded_photos[] = $base64;
+                }
+            }
+        }
+    }
+
+    // แปลงรูปภาพทั้งหมดเป็น JSON String
+    if (empty($uploaded_photos) && !$edit_id && (!isset($_POST['clear_existing_photos']) || $_POST['clear_existing_photos'] !== '1')) {
+        // กรณีแบบประเมินใหม่แล้วไม่ได้อัปโหลดรูป ให้เป็น dummy เพื่อความสมบูรณ์ในการพิมพ์และดูรายงาน
+        $photos_json_saved = json_encode([
+            "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=400&q=80"
+        ]);
+    } else {
+        $photos_json_saved = json_encode($uploaded_photos);
+    }
+
     if (!empty($teacher_id) && !empty($year_id) && !empty($class_name) && !empty($subject_name)) {
         if ($edit_id) {
             // ดำเนินการแก้ไขไอดีเรคอร์ดเดิม
@@ -104,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             $stmt->execute([
                 $teacher_id, $year_id, $class_name, $subject_name, $date_string,
                 $scores_json_str, $comments_strengths, $comments_suggestions, $comments_development,
-                $evaluator_name, $evaluator_position, $status, $photos_json, $edit_id
+                $evaluator_name, $evaluator_position, $status, $photos_json_saved, $edit_id
             ]);
 
             $success_msg = "ปรับปรุงเอกสารทะเบียนนิเทศ {$edit_id} เป็นที่เรียบร้อยพร้อมพิมพ์ประวัติ";
@@ -131,12 +186,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             $next_num = $curr_max_num + 1;
             $new_record_id = "REC-{$year_val}-" . str_pad($next_num, 3, '0', STR_PAD_LEFT);
 
-            // เซ็ตตัวอย่างรูปถ่ายถ้าเป็นฟอร์มเปล่าเพื่อความสมจริง
-            $dummy_photos = json_encode([
-                "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=400&q=80",
-                "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=400&q=80"
-            ]);
-
             $query = "
                 INSERT INTO supervisions (
                     record_id, teacher_id, year_id, class_name, subject_name, date_string,
@@ -148,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             $stmt->execute([
                 $new_record_id, $teacher_id, $year_id, $class_name, $subject_name, $date_string,
                 $scores_json_str, $comments_strengths, $comments_suggestions, $comments_development,
-                $evaluator_name, $evaluator_position, $status, $dummy_photos
+                $evaluator_name, $evaluator_position, $status, $photos_json_saved
             ]);
 
             $success_msg = "ประเมินนิเทศคาบสอนครู {$new_record_id} ลงระบบสารสนเทศเรียบร้อย!";
@@ -233,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
         <?php endif; ?>
 
         <!-- Evaluation Form container -->
-        <form method="POST" class="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-8">
+        <form method="POST" enctype="multipart/form-data" class="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-8">
             <input type="hidden" name="action_save_supervision" value="1">
 
             <!-- Phase 1: General Header details metadata -->
@@ -390,8 +439,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                 </div>
             </div>
 
-            <!-- Portion 4: Evaluator and Status signature configs metadata -->
+            <!-- Portion 4: Classroom Supervision Photos Upload -->
             <div class="space-y-4 border-t pt-6">
+                <div class="border-b pb-3">
+                    <h2 class="text-[#0A3370] font-extrabold text-base">ส่วนที่ 4: อัปโหลดรูปภาพบรรยากาศการจัดการเรียนรู้ในชั้นเรียน</h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">แนบหลักฐานภาพถ่ายกิจกรรมในชั้นเรียน แผนการเรียนรู้แบบ Active Learning เพื่อนำไปแสดงผลที่ท้ายรายงานนิเทศ (พิมพ์แยกหน้าได้)</p>
+                </div>
+
+                <!-- Existing Photos Manager -->
+                <?php if (!empty($current_photos)): ?>
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-700 block">📸 ภาพถ่ายบรรยากาศในสารบบข้อมูลขณะนี้ (จำนวน <?php echo count($current_photos); ?> ภาพ):</label>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <?php foreach ($current_photos as $idx => $photo_url): ?>
+                                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-2 relative flex flex-col items-center">
+                                    <div class="w-full h-24 rounded-xl overflow-hidden shadow-inner bg-slate-100">
+                                        <img src="<?php echo htmlspecialchars($photo_url); ?>" class="w-full h-full object-cover">
+                                    </div>
+                                    <div class="mt-2 flex items-center gap-1.5 self-start select-none">
+                                        <label class="inline-flex items-center gap-1 cursor-pointer text-red-650 hover:text-red-800">
+                                            <input type="checkbox" name="remove_photo_index[]" value="<?php echo $idx; ?>" class="rounded text-red-600 cursor-pointer border-slate-300">
+                                            <span class="text-[10px] font-bold">🗑️ ติ๊กเพื่อลบรูปนี้</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="pt-1.5 flex items-center gap-2">
+                            <label class="inline-flex items-center gap-1.5 text-xs text-rose-750 font-bold cursor-pointer bg-rose-50 border border-rose-200 rounded-xl px-3 py-1.5 hover:bg-rose-100 transition shadow-2xs">
+                                <input type="checkbox" name="clear_existing_photos" value="1" class="rounded text-rose-700 cursor-pointer border-slate-300">
+                                <span>❌ ลบรูปภาพประวัติเดิมทั้งหมดและเริ่มใหม่</span>
+                            </label>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <!-- New Upload Field -->
+                <div class="bg-teal-50/40 border border-dashed border-[#0D9488]/30 p-5 rounded-2xl space-y-3">
+                    <label class="text-xs font-bold text-[#0D9488] block">📤 เลือกอัปโหลดรูปภาพใหม่เพิ่มเติมประกอบเล่ม (เลือกได้หลายภาพ):</label>
+                    <div class="flex items-center justify-center w-full">
+                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-[#0D9488]/20 border-dashed rounded-xl cursor-pointer bg-white hover:bg-teal-50/20 transition">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                                <span class="text-3xl mb-1">🖼️</span>
+                                <p class="mb-1 text-xs text-[#0D9488] font-bold">คลิกที่นี่เพื่อเปิดแกลเลอรี่/เลือกไฟล์รูปภาพ</p>
+                                <p class="text-[10px] text-slate-400">ขนาดไฟล์แนะนำไม่เกิน 4MB ต่อไฟล์รูปภาพ (รองรับ jpg, jpeg, png, gif, webp)</p>
+                            </div>
+                            <input id="supervision_photos_files" name="supervision_photos_files[]" type="file" accept="image/*" class="hidden" multiple onchange="previewImages()">
+                        </label>
+                    </div>
+
+                    <!-- Selected Files Preview Container -->
+                    <div id="new_preview_container" class="grid grid-cols-2 sm:grid-cols-4 gap-4 hidden mt-3">
+                        <!-- Dynamic file previews will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portion 5: Evaluator and Status signature configs metadata (Formerly portion 4) -->
+            <div class="space-y-4 border-t pt-6">
+                <div class="border-b pb-3">
+                    <h2 class="text-[#0A3370] font-extrabold text-base">ส่วนที่ 5: ข้อมูลผู้ประเมินและการยืนยันสถานะบันทึก</h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">ระบุชื่อและตำแหน่งวิทยฐานะของท่านให้ถูกต้องและเลือกสถานะนำส่ง</p>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-medium">
                     <div class="space-y-1">
                         <label class="text-xs font-bold text-slate-600 block">ชื่อผู้นิเทศ / คณะผู้ตรวจประเมิน *</label>
@@ -479,6 +588,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                     parent.classList.remove('bg-[#0A3370]', 'text-white', 'border-[#0A3370]', 'shadow-xs');
                 }
             });
+        }
+
+        // ฟังก์ชันพรีวิวภาพถ่ายใหม่ที่ผู้ใช้อัปโหลดเพิ่มเติม
+        function previewImages() {
+            const input = document.getElementById('supervision_photos_files');
+            const container = document.getElementById('new_preview_container');
+            if (!input || !container) return;
+
+            container.innerHTML = '';
+            
+            if (input.files && input.files.length > 0) {
+                container.classList.remove('hidden');
+                
+                // สร้างพาดหัวย่อยสำหรับสลิปรูปที่เลือก
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'col-span-full border-b pb-1 mb-1';
+                titleDiv.innerHTML = '<span class="text-[11px] font-extrabold text-teal-800">📸 ภาพถ่ายชุดใหม่ที่พร้อมจะบันทึก:</span>';
+                container.appendChild(titleDiv);
+
+                for (let i = 0; i < input.files.length; i++) {
+                    const file = input.files[i];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const previewItem = document.createElement('div');
+                        previewItem.className = 'bg-white border border-slate-200 p-2 rounded-2xl relative flex flex-col items-center shadow-2xs';
+                        
+                        previewItem.innerHTML = `
+                            <div class="w-full h-24 rounded-xl overflow-hidden shadow-inner bg-slate-50">
+                                <img src="${e.target.result}" class="w-full h-full object-cover">
+                            </div>
+                            <span class="text-[9px] text-slate-500 mt-1.5 truncate w-full text-center font-bold px-1">${file.name}</span>
+                        `;
+                        container.appendChild(previewItem);
+                    }
+                    reader.readAsDataURL(file);
+                }
+            } else {
+                container.classList.add('hidden');
+            }
         }
 
         // รันคำสั่งทันทีหลังเปิดเว็บเพจเสร็จสิ้นความสมบูรณ์
