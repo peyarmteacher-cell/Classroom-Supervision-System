@@ -53,6 +53,57 @@ if ($user_role === 'teacher') {
     $teacher_data = $stmt_t->fetch();
 }
 
+// โหลดข้อมูลภาพโลโก้และชื่อโรงเรียนปัจจุบัน
+$stmt_logo = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_logo'");
+$stmt_logo->execute();
+$current_logo = $stmt_logo->fetchColumn() ?: '';
+
+$stmt_sname = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_name'");
+$stmt_sname->execute();
+$current_school_name = $stmt_sname->fetchColumn() ?: 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_school_settings'])) {
+    if ($user_role === 'admin') {
+        $school_name = trim($_POST['school_name'] ?? '');
+        $logo_saved = $current_logo;
+        
+        if (isset($_FILES['school_logo_file']) && $_FILES['school_logo_file']['error'] === UPLOAD_ERR_OK) {
+            $file_tmp = $_FILES['school_logo_file']['tmp_name'];
+            $file_name = $_FILES['school_logo_file']['name'];
+            $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+            $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (!in_array($file_ext, $allowed_exts)) {
+                $error_msg = 'อนุญาตเฉพาะไฟล์รูปภาพสกุล JPG, JPEG, PNG หรือ GIF เท่านั้น';
+            } else {
+                $img_data = file_get_contents($file_tmp);
+                $base64_img = 'data:image/' . $file_ext . ';base64,' . base64_encode($img_data);
+                $logo_saved = $base64_img;
+            }
+        } else if (isset($_POST['remove_logo']) && $_POST['remove_logo'] == '1') {
+            $logo_saved = '';
+        }
+
+        if (empty($error_msg)) {
+            try {
+                $stmt_up_logo = $pdo->prepare("UPDATE school_settings SET setting_value = ? WHERE setting_key = 'school_logo'");
+                $stmt_up_logo->execute([$logo_saved]);
+
+                $stmt_up_name = $pdo->prepare("UPDATE school_settings SET setting_value = ? WHERE setting_key = 'school_name'");
+                $stmt_up_name->execute([$school_name]);
+
+                $current_logo = $logo_saved;
+                $current_school_name = $school_name;
+                $success_msg = 'อัปเดตข้อมูลตั้งค่าโรงเรียนและโลโก้นิเทศประจำสถาบันเรียบร้อยแล้ว!';
+            } catch (Exception $e) {
+                $error_msg = 'เกิดปัญหาในการบันทึกการตั้งค่าลงฐานข้อมูล: ' . $e->getMessage();
+            }
+        }
+    } else {
+        $error_msg = 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่ได้รับสิทธิ์ในการเปลี่ยนแปลงการตั้งค่าโรงเรียน';
+    }
+}
+
 // ดำเนินการอัพเดตข้อมูลเมื่อมีการส่งฟอร์ม POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile'])) {
     $fullname = trim($_POST['fullname'] ?? '');
@@ -224,7 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                     👥 ทะเบียนครูผู้สอน
                 </a>
                 <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5">
-                    📅 สารบบปีการศึกษา
+                    📅 ปีการศึกษา
                 </a>
             <?php endif; ?>
             <a href="profile.php" class="px-4 py-2 bg-amber-500 text-white font-bold rounded-xl shadow-xs flex items-center gap-1.5">
@@ -233,22 +284,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
         </div>
 
         <?php if ($success_msg): ?>
-            <div class="text-xs bg-emerald-50 border border-emerald-250 text-emerald-800 p-4 rounded-2xl font-bold">
+            <div class="text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl font-bold">
                 ✅ <?php echo htmlspecialchars($success_msg); ?>
             </div>
         <?php endif; ?>
 
         <?php if ($error_msg): ?>
-            <div class="text-xs bg-rose-50 border border-rose-250 text-rose-800 p-4 rounded-2xl font-bold">
+            <div class="text-xs bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-2xl font-bold">
                 ⚠️ <?php echo htmlspecialchars($error_msg); ?>
             </div>
         <?php endif; ?>
 
         <!-- Form and account details layout -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             <!-- Side Card: Account Info -->
-            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4">
+            <div class="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4">
                 <div class="text-center space-y-2">
                     <div class="w-24 h-24 bg-amber-100/70 border border-amber-200 text-amber-700 flex items-center justify-center text-4xl rounded-xl mx-auto overflow-hidden relative shadow-inner">
                         <?php if ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && file_exists($teacher_data['photo_path'])): ?>
@@ -291,97 +342,153 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                 </div>
             </div>
 
-            <!-- Content Card: Edit Form -->
-            <div class="md:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
-                <div class="border-b pb-2">
-                    <h2 class="font-extrabold text-[#0A3370] text-sm">การแก้ไขข้อมูลบัญชีและข้อมูลติดต่อหน่วยนิเทศ</h2>
-                    <p class="text-[10px] text-slate-400 mt-0.5">คุณสามารถปรับเปลี่ยนชื่อล็อกอิน รายละเอียดติดต่อ และพาสเวิร์ดที่ใช้ในการเข้าสู่ระบบ</p>
+            <!-- Content Card: Edit Forms -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Account Profile Edit Form Card -->
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
+                    <div class="border-b pb-2">
+                        <h2 class="font-extrabold text-[#0A3370] text-sm">การแก้ไขข้อมูลบัญชีและข้อมูลติดต่อหน่วยนิเทศ</h2>
+                        <p class="text-[10px] text-slate-400 mt-0.5">คุณสามารถปรับเปลี่ยนชื่อล็อกอิน รายละเอียดติดต่อ และพาสเวิร์ดที่ใช้ในการเข้าสู่ระบบ</p>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-semibold text-slate-600">
+                        <input type="hidden" name="action_update_profile" value="1">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Fullname -->
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">ชื่อ - นามสกุลจริงของคุณ *</label>
+                                <input type="text" name="fullname" required value="<?php echo htmlspecialchars($u_data['fullname']); ?>" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-blue-900">
+                            </div>
+
+                            <!-- Username -->
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500">ชื่อล็อกอินผู้ใช้งาน (Username) *</label>
+                                <input type="text" name="username" required value="<?php echo htmlspecialchars($u_data['username']); ?>" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono focus:ring-1 focus:ring-blue-900">
+                            </div>
+                        </div>
+
+                        <?php if ($teacher_data): ?>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 border-t border-dashed pt-4">
+                                <!-- Position -->
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">ตำแหน่งงาน / วิทยฐานะ *</label>
+                                    <select name="position" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer outline-none">
+                                        <option value="ครู คศ.1" <?php if ($teacher_data['position'] === 'ครู คศ.1') echo 'selected'; ?>>ครู คศ.1</option>
+                                        <option value="ครูชำนาญการ" <?php if ($teacher_data['position'] === 'ครูชำนาญการ') echo 'selected'; ?>>ครูชำนาญการ</option>
+                                        <option value="ครูชำนาญการพิเศษ" <?php if ($teacher_data['position'] === 'ครูชำนาญการพิเศษ') echo 'selected'; ?>>ครูชำนาญการพิเศษ</option>
+                                        <option value="ครูผู้ช่วย" <?php if ($teacher_data['position'] === 'ครูผู้ช่วย') echo 'selected'; ?>>ครูผู้ช่วย</option>
+                                        <option value="ครู คศ.3 / ผู้อำนวยการ" <?php if ($teacher_data['position'] === 'ครู คศ.3 / ผู้อำนวยการ') echo 'selected'; ?>>ครู คศ.3 / ผู้อำนวยการ</option>
+                                    </select>
+                                </div>
+
+                                <!-- Subject group -->
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">กลุ่มสาระการเรียนรู้ *</label>
+                                    <select name="subject_group" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer outline-none">
+                                        <option value="กลุ่มสาระการเรียนรู้ภาษาไทย" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้ภาษาไทย') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้ภาษาไทย</option>
+                                        <option value="กลุ่มสาระการเรียนรู้คณิตศาสตร์" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้คณิตศาสตร์') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้คณิตศาสตร์</option>
+                                        <option value="กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี</option>
+                                        <option value="กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนา และวัฒนธรรม" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนา และวัฒนธรรม') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนา และวัฒนธรรม</option>
+                                        <option value="กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา</option>
+                                        <option value="กลุ่มสาระการเรียนรู้ศิลปะ" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้ศิลปะ') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้ศิลปะ</option>
+                                        <option value="กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ</option>
+                                    </select>
+                                </div>
+
+                                <!-- Phone -->
+                                <div class="space-y-1 sm:col-span-2">
+                                    <label class="text-xs font-bold text-slate-500">เบอร์โทรศัพท์ติดต่อ</label>
+                                    <input type="text" name="phone" value="<?php echo htmlspecialchars($teacher_data['phone']); ?>" placeholder="เช่น 081-XXXXXXX" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono">
+                                </div>
+
+                                <!-- Photo Upload -->
+                                <div class="space-y-2 sm:col-span-2 border-t border-dashed pt-4 mt-1">
+                                    <label class="text-xs font-bold text-amber-700 block">📸 อัพโหลดรูปถ่ายประจำตัวของคุณครู (สำหรับหน้าข้อมูลและการนิเทศ)</label>
+                                    <div class="flex items-center gap-3">
+                                        <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                                    </div>
+                                    <p class="text-[9px] text-slate-400">รองรับไฟล์รูปภาพเท่านั้น (JPG, JPEG, PNG, GIF) เพื่อให้ผู้อำนวยการโรงเรียนรู้จักหน้าคุณครูในการทำรายงานนิเทศ</p>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="border-t border-dashed pt-4 space-y-4">
+                            <span class="text-xs font-extrabold text-amber-600 block">🔒 หากประสงค์แก้ไขเปลี่ยนรหัสผ่านใหม่ (หากไม่ต้องการเปลี่ยนให้ปล่อยว่างไว้):</span>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">รหัสผ่านใหม่ (New Password)</label>
+                                    <input type="password" name="new_password" placeholder="พิมพ์รหัสเข้าใช้งานแทนตัวเก่า" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-xs font-bold text-slate-500">ยืนยันรหัสผ่านใหม่อีกครั้ง</label>
+                                    <input type="password" name="confirm_password" placeholder="ระบุยืนยันพาสเวิร์ดใหม่ให้ตรงกัน" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t flex justify-end gap-2.5">
+                            <a href="dashboard.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-center">ยกเลิกกลับแดชบอร์ด</a>
+                            <button type="submit" class="px-6 py-2.5 bg-[#0A3370] hover:bg-[#07244F] text-white font-bold rounded-xl shadow cursor-pointer">
+                                💾 บันทึกการเปลี่ยนแปลงข้อมูลบัญชี
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
-                <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-semibold text-slate-650">
-                    <input type="hidden" name="action_update_profile" value="1">
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Fullname -->
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500">ชื่อ - นามสกุลจริงของคุณ *</label>
-                            <input type="text" name="fullname" required value="<?php echo htmlspecialchars($u_data['fullname']); ?>" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-blue-900">
-                        </div>
-
-                        <!-- Username -->
-                        <div class="space-y-1">
-                            <label class="text-xs font-bold text-slate-500">ชื่อล็อกอินผู้ใช้งาน (Username) *</label>
-                            <input type="text" name="username" required value="<?php echo htmlspecialchars($u_data['username']); ?>" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono focus:ring-1 focus:ring-blue-900">
-                        </div>
+                <!-- Admin Only: School Settings & Logo Management Card -->
+                <?php if ($user_role === 'admin'): ?>
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
+                    <div class="border-b pb-2">
+                        <h2 class="font-extrabold text-[#0D9488] text-sm flex items-center gap-2">🏫 ตั้งค่าตราสัญลักษณ์ (Logo) และข้อมูลสถาบันการศึกษา</h2>
+                        <p class="text-[10px] text-slate-400 mt-0.5">ปรับเปลี่ยนภาพโลโก้ประจำโรงเรียนของตนเอง เพื่อแสดงในส่วนหัวของเอกสารรายงานผลการนิเทศชั้นเรียน คาบเรียน ตลอดจนตั้งชื่อสถาบันการศึกษา</p>
                     </div>
 
-                    <?php if ($teacher_data): ?>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 border-t border-dashed pt-4">
-                            <!-- Position -->
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">ตำแหน่งงาน / วิทยฐานะ *</label>
-                                <select name="position" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer outline-none">
-                                    <option value="ครู คศ.1" <?php if ($teacher_data['position'] === 'ครู คศ.1') echo 'selected'; ?>>ครู คศ.1</option>
-                                    <option value="ครูชำนาญการ" <?php if ($teacher_data['position'] === 'ครูชำนาญการ') echo 'selected'; ?>>ครูชำนาญการ</option>
-                                    <option value="ครูชำนาญการพิเศษ" <?php if ($teacher_data['position'] === 'ครูชำนาญการพิเศษ') echo 'selected'; ?>>ครูชำนาญการพิเศษ</option>
-                                    <option value="ครูผู้ช่วย" <?php if ($teacher_data['position'] === 'ครูผู้ช่วย') echo 'selected'; ?>>ครูผู้ช่วย</option>
-                                    <option value="ครู คศ.3 / ผู้อำนวยการ" <?php if ($teacher_data['position'] === 'ครู คศ.3 / ผู้อำนวยการ') echo 'selected'; ?>>ครู คศ.3 / ผู้อำนวยการ</option>
-                                </select>
-                            </div>
+                    <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-semibold text-slate-600">
+                        <input type="hidden" name="action_update_school_settings" value="1">
 
-                            <!-- Subject group -->
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-500">กลุ่มสาระการเรียนรู้ *</label>
-                                <select name="subject_group" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer outline-none">
-                                    <option value="กลุ่มสาระการเรียนรู้ภาษาไทย" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้ภาษาไทย') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้ภาษาไทย</option>
-                                    <option value="กลุ่มสาระการเรียนรู้คณิตศาสตร์" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้คณิตศาสตร์') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้คณิตศาสตร์</option>
-                                    <option value="กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี</option>
-                                    <option value="กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนา และวัฒนธรรม" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนา และวัฒนธรรม') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนา และวัฒนธรรม</option>
-                                    <option value="กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา</option>
-                                    <option value="กลุ่มสาระการเรียนรู้ศิลปะ" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้ศิลปะ') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้ศิลปะ</option>
-                                    <option value="กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ" <?php if ($teacher_data['subject_group'] === 'กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ') echo 'selected'; ?>>กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ</option>
-                                </select>
-                            </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 block">ชื่อโรงเรียน / ชื่อย่อสถานศึกษา *</label>
+                            <input type="text" name="school_name" required value="<?php echo htmlspecialchars($current_school_name); ?>" class="w-full px-3 py-2 bg-slate-50 border border-[#0D9488]/30 rounded-xl text-xs outline-none focus:ring-1 focus:ring-teal-500">
+                        </div>
 
-                            <!-- Phone -->
-                            <div class="space-y-1 sm:col-span-2">
-                                <label class="text-xs font-bold text-slate-500">เบอร์โทรศัพท์ติดต่อ</label>
-                                <input type="text" name="phone" value="<?php echo htmlspecialchars($teacher_data['phone']); ?>" placeholder="เช่น 081-XXXXXXX" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono">
-                            </div>
-
-                            <!-- Photo Upload -->
-                            <div class="space-y-2 sm:col-span-2 border-t border-dashed pt-4 mt-1">
-                                <label class="text-xs font-bold text-amber-700 block">📸 อัพโหลดรูปถ่ายประจำตัวของคุณครู (สำหรับหน้าข้อมูลและการนิเทศ)</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                        <div class="space-y-2 border-t border-dashed pt-4">
+                            <label class="text-xs font-bold text-[#0D9488] block">🛡️ อัปโหลดตราโลโก้โรงเรียน (School Logo)</label>
+                            
+                            <div class="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div class="w-20 h-20 bg-white border rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner relative">
+                                    <?php if (!empty($current_logo)): ?>
+                                        <img src="<?php echo $current_logo; ?>" alt="ตราสัญลักษณ์สถาบัน" class="w-full h-full object-contain">
+                                    <?php else: ?>
+                                        <div class="text-center text-slate-350">
+                                            <span class="text-3xl block">🏫</span>
+                                            <span class="text-[8px] font-bold text-slate-400 block mt-0.5">ไม่มีโลโก้</span>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
-                                <p class="text-[9px] text-slate-400">รองรับไฟล์รูปภาพเท่านั้น (JPG, JPEG, PNG, GIF) เพื่อให้ผู้อำนวยการโรงเรียนรู้จักหน้าคุณครูในการทำรายงานนิเทศ</p>
+                                <div class="flex-1 space-y-2 w-full text-center sm:text-left">
+                                    <input type="file" name="school_logo_file" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-teal-50 file:text-[#0D9488] hover:file:bg-teal-100 cursor-pointer">
+                                    <p class="text-[9px] text-slate-400 leading-normal">รองรับไฟล์รูปภาพทั่วไป (JPG, JPEG, PNG, GIF) โดยรูปภาพจะถูกจัดเก็บในรูป Base64 สะดวกและปลอดภัยยิ่งขึ้น</p>
+                                    
+                                    <?php if (!empty($current_logo)): ?>
+                                        <label class="inline-flex items-center gap-1.5 text-xs text-rose-600 font-extrabold cursor-pointer mt-1">
+                                            <input type="checkbox" name="remove_logo" value="1" class="rounded border-slate-300 text-rose-600 cursor-pointer">
+                                            <span>ลบโลโก้ปัจจุบัน (เพื่อย้อนกลับไปใช้ตราเริ่มต้น)</span>
+                                        </label>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
-                    <?php endif; ?>
 
-                    <div class="border-t border-dashed pt-4 space-y-4">
-                        <span class="text-xs font-extrabold text-amber-600 block">🔒 หากประสงค์แก้ไขเปลี่ยนรหัสผ่านใหม่ (หากไม่ต้องการเปลี่ยนให้ปล่อยว่างไว้):</span>
-                        
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-505">รหัสผ่านใหม่ (New Password)</label>
-                                <input type="password" name="new_password" placeholder="พิมพ์รหัสเข้าใช้งานแทนตัวเก่า" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold text-slate-505 font-medium">ยืนยันรหัสผ่านใหม่อีกครั้ง</label>
-                                <input type="password" name="confirm_password" placeholder="ระบุยืนยันพาสเวิร์ดใหม่ให้ตรงกัน" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
-                            </div>
+                        <div class="pt-4 border-t flex justify-end">
+                            <button type="submit" class="px-6 py-2.5 bg-[#0D9488] hover:bg-[#0F766E] text-white font-extrabold rounded-xl shadow cursor-pointer transition">
+                                💾 บันทึกตั้งค่าสถาบันและโลโก้
+                            </button>
                         </div>
-                    </div>
-
-                    <div class="pt-4 border-t flex justify-end gap-2.5">
-                        <a href="dashboard.php" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-center">ยกเลิกกลับแดชบอร์ด</a>
-                        <button type="submit" class="px-6 py-2.5 bg-[#0A3370] hover:bg-[#07244F] text-white font-bold rounded-xl shadow cursor-pointer">
-                            💾 บันทึกการเปลี่ยนแปลงข้อมูลบัญชี
-                        </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
+                <?php endif; ?>
             </div>
 
         </div>

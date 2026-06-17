@@ -176,6 +176,13 @@ try {
         PRIMARY KEY (`class_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
+    // ตารางเก็บการตั้งค่าโรงเรียน เช่น โลโก้
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `school_settings` (
+        `setting_key` VARCHAR(100) NOT NULL,
+        `setting_value` LONGTEXT DEFAULT NULL,
+        PRIMARY KEY (`setting_key`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
     // ==========================================
     // ตรวจสอบความถูกต้องและลงข้อมูลเริ่มต้นอัตโนมัติ (Automated Database Seeding)
     // ==========================================
@@ -262,6 +269,16 @@ try {
         foreach ($default_classes as $cls) {
             $stmt_class->execute([$cls]);
         }
+    }
+
+    // 6. ลงตั้งค่าระดับบริการตั้งต้นตัวอย่าง
+    $check_logo_setting = $pdo->query("SELECT COUNT(*) FROM `school_settings` WHERE `setting_key` = 'school_logo'")->fetchColumn();
+    if ($check_logo_setting == 0) {
+        $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) VALUES ('school_logo', '')");
+    }
+    $check_name_setting = $pdo->query("SELECT COUNT(*) FROM `school_settings` WHERE `setting_key` = 'school_name'")->fetchColumn();
+    if ($check_name_setting == 0) {
+        $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) VALUES ('school_name', 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน')");
     }
 
 } catch (PDOException $e) {
