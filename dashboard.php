@@ -148,11 +148,11 @@ if (isset($_GET['action_export_csv'])) {
         $sum = array_sum($scores);
         $pct = ($sum / 100) * 100;
         
-        $grade = 'ปรับปรุง';
-        if ($pct >= 90) $grade = 'ดีเยี่ยม';
-        else if ($pct >= 80) $grade = 'ดีมาก';
-        else if ($pct >= 70) $grade = 'ดี';
-        else if ($pct >= 60) $grade = 'พอใช้';
+        $grade = 'ต้องได้รับการพัฒนา';
+        if ($pct >= 90) $grade = 'ผ่านเกณฑ์ระดับดีเยี่ยม';
+        else if ($pct >= 80) $grade = 'ผ่านเกณฑ์ระดับดีมาก';
+        else if ($pct >= 70) $grade = 'ผ่านเกณฑ์ระดับดี';
+        else if ($pct >= 60) $grade = 'ผ่านเกณฑ์ระดับพอใช้';
         
         fputcsv($output, [
             $rec['record_id'],
@@ -395,12 +395,12 @@ if (isset($_GET['action_export_csv'])) {
                                 $scoreSum = array_sum($scores);
                                 $pct = ($scoreSum / 100) * 100;
 
-                                $grade = 'ต้องปรับปรุง';
-                                $gradeColor = 'text-rose-600 bg-rose-50';
-                                if ($pct >= 90) { $grade = 'ดีเยี่ยม'; $gradeColor = 'text-emerald-700 bg-emerald-50'; }
-                                else if ($pct >= 80) { $grade = 'ดีมาก'; $gradeColor = 'text-green-700 bg-green-50'; }
-                                else if ($pct >= 70) { $grade = 'ดี'; $gradeColor = 'text-blue-700 bg-blue-50'; }
-                                else if ($pct >= 60) { $grade = 'พอใช้'; $gradeColor = 'text-amber-700 bg-amber-50'; }
+                                $grade = 'ต้องได้รับการพัฒนา';
+                                $gradeColor = 'text-rose-600 bg-rose-50 border border-rose-200';
+                                if ($pct >= 90) { $grade = 'ผ่านเกณฑ์ระดับดีเยี่ยม'; $gradeColor = 'text-emerald-700 bg-emerald-50 border border-emerald-200'; }
+                                else if ($pct >= 80) { $grade = 'ผ่านเกณฑ์ระดับดีมาก'; $gradeColor = 'text-green-700 bg-green-50 border border-green-200'; }
+                                else if ($pct >= 70) { $grade = 'ผ่านเกณฑ์ระดับดี'; $gradeColor = 'text-blue-750 bg-blue-50 border border-blue-200'; }
+                                else if ($pct >= 60) { $grade = 'ผ่านเกณฑ์ระดับพอใช้'; $gradeColor = 'text-amber-700 bg-amber-50 border border-amber-200'; }
                             ?>
                                 <tr class="hover:bg-slate-50 transition">
                                     <!-- ID -->

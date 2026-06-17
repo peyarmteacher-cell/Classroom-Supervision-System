@@ -407,17 +407,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-semibold">
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-600 block">จุดเด่น/พฤติกรรมดีที่สุดของคุณครู (Strengths)</label>
+                        <label class="text-xs font-bold text-slate-600 block">จุดเด่นและแนวปฏิบัติที่เป็นเลิศ (Best Practice)</label>
                         <textarea name="comments_strengths" placeholder="คุณครูวิเคราะห์แผนบทเรียน และกระตุ้นเด็กนักเรียนผ่าน Active Learning ครบครัน..." rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none text-slate-700"><?php echo htmlspecialchars($comments_strengths); ?></textarea>
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-600 block">ข้อเสนอแนะเพื่อการจัดเรียนรู้ในอนาคต (Suggestions)</label>
+                        <label class="text-xs font-bold text-slate-600 block">ข้อเสนอแนะเพื่อการพัฒนาการจัดการเรียนรู้</label>
                         <textarea name="comments_suggestions" placeholder="ควรเพิ่มเทคโนโลยีอินเทอร์เน็ตประยุกต์มาสุ่มเด็กนักเรียนเพิ่มเติม..." rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none text-slate-700"><?php echo htmlspecialchars($comments_suggestions); ?></textarea>
                     </div>
 
                     <div class="space-y-1">
-                        <label class="text-xs font-bold text-slate-600 block">แนวทางการพัฒนาร่วมกัน / ผลลัพธ์คาดคะเน (Action Plan)</label>
+                        <label class="text-xs font-bold text-slate-600 block">แนวทางและแผนการพัฒนาร่วมกัน</label>
                         <textarea name="comments_development" placeholder="ตกลงร่วมกันพัฒนานวัตกรรมสื่อสื่อประกอบการสอนและการติดตามแผนรายเทอม..." rows="4" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none text-slate-700"><?php echo htmlspecialchars($comments_development); ?></textarea>
                     </div>
                 </div>
