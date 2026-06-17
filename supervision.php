@@ -117,7 +117,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
         $uploaded_photos = array_values($uploaded_photos); // จัดเรียง index การวนลูปใหม่
     }
 
-    // เพิ่มรูปภาพอัปโหลดใหม่
+    // เพิ่มรูปภาพอัปโหลดใหม่ (จากแบบคำขอย่อขนาดประสิทธิภาพสูงบนเบราว์เซอร์)
+    if (!empty($_POST['compressed_photos_json'])) {
+        $client_photos = json_decode($_POST['compressed_photos_json'], true);
+        if (is_array($client_photos)) {
+            foreach ($client_photos as $b64) {
+                if (strpos($b64, 'data:image/') === 0) {
+                    $uploaded_photos[] = $b64;
+                }
+            }
+        }
+    }
+
+    // เพิ่มรูปภาพอัปโหลดใหม่ (กรณี fallback ของไฟล์อัปโหลดมาตรฐาน)
     if (isset($_FILES['supervision_photos_files'])) {
         $files = $_FILES['supervision_photos_files'];
         if (is_array($files['name'])) {
@@ -134,12 +146,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
         }
     }
 
+    // จำกัดจำนวนรูปภาพประกอบเล่มนิเทศไว้ไม่เกิน 4 รูปสูงสุด เพื่อความสวยงามในการจัดพิมพ์ 2 คอลัมน์
+    $uploaded_photos = array_slice($uploaded_photos, 0, 4);
+
     // แปลงรูปภาพทั้งหมดเป็น JSON String
     if (empty($uploaded_photos) && !$edit_id && (!isset($_POST['clear_existing_photos']) || $_POST['clear_existing_photos'] !== '1')) {
         // กรณีแบบประเมินใหม่แล้วไม่ได้อัปโหลดรูป ให้เป็น dummy เพื่อความสมบูรณ์ในการพิมพ์และดูรายงาน
         $photos_json_saved = json_encode([
             "https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=400&q=80",
-            "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=400&q=80"
+            "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=400&q=80"
         ]);
     } else {
         $photos_json_saved = json_encode($uploaded_photos);
@@ -476,17 +493,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
 
                 <!-- New Upload Field -->
                 <div class="bg-teal-50/40 border border-dashed border-[#0D9488]/30 p-5 rounded-2xl space-y-3">
-                    <label class="text-xs font-bold text-[#0D9488] block">📤 เลือกอัปโหลดรูปภาพใหม่เพิ่มเติมประกอบเล่ม (เลือกได้หลายภาพ):</label>
+                    <label class="text-xs font-bold text-[#0D9488] block">📤 เลือกอัปโหลดรูปภาพใหม่เพิ่มเติมประกอบเล่ม (เลือกได้สูงสุด 4 ภาพ, รองรับการย่อขนาดไฟล์อัตโนมัติ):</label>
                     <div class="flex items-center justify-center w-full">
                         <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-[#0D9488]/20 border-dashed rounded-xl cursor-pointer bg-white hover:bg-teal-50/20 transition">
                             <div class="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
                                 <span class="text-3xl mb-1">🖼️</span>
                                 <p class="mb-1 text-xs text-[#0D9488] font-bold">คลิกที่นี่เพื่อเปิดแกลเลอรี่/เลือกไฟล์รูปภาพ</p>
-                                <p class="text-[10px] text-slate-400">ขนาดไฟล์แนะนำไม่เกิน 4MB ต่อไฟล์รูปภาพ (รองรับ jpg, jpeg, png, gif, webp)</p>
+                                <p class="text-[10px] text-slate-400">ระบบจะทำการสเกลย่อยขนาดไฟล์ภาพที่มีความละเอียดสูงให้อัตโนมัติในเบราว์เซอร์เพื่อความรวดเร็วในการส่งข้อมูล</p>
                             </div>
-                            <input id="supervision_photos_files" name="supervision_photos_files[]" type="file" accept="image/*" class="hidden" multiple onchange="previewImages()">
+                            <input id="supervision_photos_files" name="supervision_photos_files[]" type="file" accept="image/*" class="hidden" multiple onchange="previewAndCompressImages()">
                         </label>
                     </div>
+                    
+                    <!-- Hidden field to carry compressed image JSON data -->
+                    <input type="hidden" name="compressed_photos_json" id="compressed_photos_json" value="">
 
                     <!-- Selected Files Preview Container -->
                     <div id="new_preview_container" class="grid grid-cols-2 sm:grid-cols-4 gap-4 hidden mt-3">
@@ -590,44 +610,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             });
         }
 
-        // ฟังก์ชันพรีวิวภาพถ่ายใหม่ที่ผู้ใช้อัปโหลดเพิ่มเติม
-        function previewImages() {
+        // ฟังก์ชันพรีวิวและย่อขนาดภาพถ่ายอัตโนมัติบนเบราว์เซอร์เพื่อความรวดเร็วและประหยัดพื้นที่คลังส่งมอบ
+        function previewAndCompressImages() {
             const input = document.getElementById('supervision_photos_files');
             const container = document.getElementById('new_preview_container');
-            if (!input || !container) return;
+            const hiddenInput = document.getElementById('compressed_photos_json');
+            
+            if (!input || !container || !hiddenInput) return;
 
             container.innerHTML = '';
-            
-            if (input.files && input.files.length > 0) {
-                container.classList.remove('hidden');
-                
-                // สร้างพาดหัวย่อยสำหรับสลิปรูปที่เลือก
-                const titleDiv = document.createElement('div');
-                titleDiv.className = 'col-span-full border-b pb-1 mb-1';
-                titleDiv.innerHTML = '<span class="text-[11px] font-extrabold text-teal-800">📸 ภาพถ่ายชุดใหม่ที่พร้อมจะบันทึก:</span>';
-                container.appendChild(titleDiv);
+            hiddenInput.value = '';
 
-                for (let i = 0; i < input.files.length; i++) {
-                    const file = input.files[i];
-                    const reader = new FileReader();
-                    
-                    reader.onload = function(e) {
+            const files = Array.from(input.files || []).slice(0, 4); // สูงสุด 4 ภาพ
+            if (files.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+
+            const compressedResults = [];
+            let processedFilesCount = 0;
+
+            // หัวข้อแถบแสดงสถานะ
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'col-span-full border-b pb-1 mb-1 flex items-center justify-between text-[11px]';
+            titleDiv.innerHTML = `
+                <span class="font-extrabold text-teal-800">📸 กำลังย่อขนาดบรรจุไฟล์รูปภาพด้วยเบราว์เซอร์...</span>
+                <span id="compress_status_badge" class="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded text-[9px]">ประมวลผลสำเร็จ 0/${files.length}</span>
+            `;
+            container.appendChild(titleDiv);
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = function() {
+                        // กำหนดขนาดสเกลสูงสุด 1024px
+                        const MAX_WIDTH = 1024;
+                        const MAX_HEIGHT = 1024;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        // สร้าง Canvas มวลชนเพื่อสเกลไฟล์รูปภาพสัดส่วนเดิม
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // ทำการบีบอัดลงค่า JPEG ที่ 0.70 คุณภาพสูงแต่น้ำหนักเบาประหยัดแรง
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.70);
+                        compressedResults[index] = compressedBase64;
+                        processedFilesCount++;
+
+                        // แขวนรูปภาพตัวอย่างที่บีบอัดลงเพจ
                         const previewItem = document.createElement('div');
-                        previewItem.className = 'bg-white border border-slate-200 p-2 rounded-2xl relative flex flex-col items-center shadow-2xs';
-                        
+                        previewItem.className = 'bg-white border border-[#0D9488]/30 p-2 rounded-2xl relative flex flex-col items-center shadow-2xs transition hover:scale-[1.01]';
                         previewItem.innerHTML = `
-                            <div class="w-full h-24 rounded-xl overflow-hidden shadow-inner bg-slate-50">
-                                <img src="${e.target.result}" class="w-full h-full object-cover">
+                            <div class="w-full h-24 rounded-xl overflow-hidden shadow-inner bg-slate-50 relative">
+                                <img src="${compressedBase64}" class="w-full h-full object-cover">
+                                <div class="absolute bottom-1 right-1 bg-teal-600/90 text-white font-bold p-0.5 px-1 pb-0.5 text-[8px] rounded-sm">ย่อเสร็จ</div>
                             </div>
                             <span class="text-[9px] text-slate-500 mt-1.5 truncate w-full text-center font-bold px-1">${file.name}</span>
                         `;
                         container.appendChild(previewItem);
-                    }
-                    reader.readAsDataURL(file);
-                }
-            } else {
-                container.classList.add('hidden');
-            }
+
+                        // รันส่งมอบเมื่อเรียบร้อยครบหน่วย
+                        if (processedFilesCount === files.length) {
+                            const finalBase64Array = compressedResults.filter(Boolean);
+                            hiddenInput.value = JSON.stringify(finalBase64Array);
+                            
+                            const badge = document.getElementById('compress_status_badge');
+                            if (badge) {
+                                badge.className = "bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5 rounded text-[9px]";
+                                badge.innerText = `ย่อขนาดลุล่วงครบถ้วน ${finalBase64Array.length} ภาพ`;
+                            }
+                        } else {
+                            const badge = document.getElementById('compress_status_badge');
+                            if (badge) {
+                                badge.innerText = `บีบอัดสำเร็จแล้ว ${processedFilesCount}/${files.length} ภาพ`;
+                            }
+                        }
+                    };
+                };
+            });
         }
 
         // รันคำสั่งทันทีหลังเปิดเว็บเพจเสร็จสิ้นความสมบูรณ์

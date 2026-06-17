@@ -67,6 +67,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เข้าสู่ระบบ - ระบบนิเทศการจัดการเรียนการสอน</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0A3370">
+    <link rel="apple-touch-icon" href="/src/assets/images/school_crest_logo_1781666281619.jpg">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ระบบนิเทศ">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered successfully!', reg))
+                    .catch(e => console.error('Service Worker registration failed.', e));
+            });
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>

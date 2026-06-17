@@ -1,0 +1,19 @@
+{
+  "name": "Classroom Supervision Systems",
+  "short_name": "ระบบนิเทศครู",
+  "description": "ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน",
+  "start_url": "/dashboard.php",
+  "display": "standalone",
+  "background_color": "#0A3370",
+  "theme_color": "#0A3370",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/src/assets/images/school_crest_logo_1781666281619.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
