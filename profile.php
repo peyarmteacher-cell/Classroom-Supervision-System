@@ -296,6 +296,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
             </div>
         <?php endif; ?>
 
+        <!-- Info Alert: Teacher Photo Upload Instructions -->
+        <div class="bg-amber-50 border border-amber-200 text-[#78350F] p-5 rounded-2xl text-xs leading-relaxed space-y-1.5 shadow-xs">
+            <span class="font-extrabold text-[#78350F] flex items-center gap-1.5 text-[13px]">📸 คำแนะนำ: นำรูปถ่ายของคุณครูใส่ในข้อมูลทั่วไปและการพิมพ์เอกสาร</span>
+            <div class="font-medium text-[11.5px] space-y-1">
+                <p>
+                    ท่านสามารถทำการอัปโหลดหรือปรับเปลี่ยนรูปภาพประจำตัวของคุณครูเพื่อไปแสดงในเอกสารรายงานการนิเทศได้ <strong>2 ช่องทาง</strong> ดังนี้:
+                </p>
+                <ol class="list-decimal pl-5 mt-1 space-y-1">
+                    <li><strong>สำหรับแอดมิน/ผู้อำนวยการ:</strong> ไปที่เมนู <a href="teachers.php" class="font-bold text-amber-900 underline hover:text-[#9A3412]">👥 ทะเบียนครูผู้สอน</a> แล้วคลิกที่ปุ่ม <span class="bg-amber-100 px-1 py-0.5 rounded text-amber-950">แก้ไข</span> หลังรายชื่อคุณครูที่ท่านต้องการ จากนั้นเลือกอัปโหลดไฟล์รูปภาพ แล้วกดบันทึก ข้อมูลรูปจะถูกนำไปใช้งานทันที</li>
+                    <li><strong>สำหรับตัวคุณครูเอง:</strong> สามารถเข้าสู่ระบบด้วยบัญชีตนเอง แล้วอัปโหลดได้แถบฟิลด์ "อัพโหลดรูปถ่ายประจำตัวของคุณครู" ด้านล่างของหน้านี้</li>
+                </ol>
+            </div>
+            <p class="text-[10.5px] text-amber-700/90 font-bold border-t border-amber-200/60 pt-1.5">
+                💡 ระบบได้อัปเกรดให้ดึงรูปภาพประจำตัวเหล่านี้ไปจัดพิมพ์ประกอบใบรายงานนิเทศและการนิเทศข้อมูลทั่วไปให้อัตโนมัติในหัวกระดาษแล้ว!
+            </p>
+        </div>
+
         <!-- Form and account details layout -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

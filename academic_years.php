@@ -120,7 +120,7 @@ $all_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semes
                 👥 ทะเบียนครูผู้สอน
             </a>
             <a href="academic_years.php" class="px-4 py-2 bg-[#0A3370] text-white rounded-xl shadow-xs font-bold flex items-center gap-1.5">
-                📅 สารบบปีการศึกษา
+                📅 ปีการศึกษา
             </a>
             <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                 🚪 ระดับชั้นเรียน
@@ -148,7 +148,7 @@ $all_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semes
             <div class="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm space-y-4">
                 <div class="border-b pb-2">
                     <h3 class="font-extrabold text-[#0A3370] text-sm">เพิ่มปีการศึกษาและภาคเรียนใหม่</h3>
-                    <p class="text-[10px] text-slate-400 mt-0.5">ระบุปี พ.ศ. ของภาคการศึกษาเพื่อเริ่มเป็นสารบบจัดเก็บ</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">ระบุปี พ.ศ. ของภาคการศึกษาเพื่อเริ่มเป็นปีการศึกษาจัดเก็บ</p>
                 </div>
 
                 <form method="POST" class="space-y-4 text-xs font-medium">
@@ -168,7 +168,7 @@ $all_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semes
                     </div>
 
                     <button type="submit" class="w-full py-2 bg-[#0A3370] hover:bg-[#07244F] text-white font-bold rounded-xl text-xs shadow cursor-pointer text-center">
-                        เพิ่มปีการศึกษาสารบบ
+                        เพิ่มปีการศึกษา
                     </button>
                 </form>
 
@@ -181,7 +181,7 @@ $all_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semes
             <!-- List Grid View of Registered Academic Terms -->
             <div class="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm text-xs space-y-4">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-extrabold text-[#0A3370] text-sm">แฟ้มทะเบียนชุดภาคการศึกษาทั้งหมดที่เปิดให้บริการ (<?php echo count($all_years); ?> สารบบ)</h3>
+                    <h3 class="font-extrabold text-[#0A3370] text-sm">แฟ้มทะเบียนชุดภาคการศึกษาทั้งหมดที่เปิดให้บริการ (<?php echo count($all_years); ?> รายการ)</h3>
                     <span class="text-[10px] text-slate-400">ระบบควบคุมโดยดาต้าเบสสัมพันธ์โรงเรียน</span>
                 </div>
 

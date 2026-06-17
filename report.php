@@ -74,6 +74,15 @@ if ($pct >= 90) {
 // โหลดข้อเกณฑ์ทั้ง 20 เกณฑ์
 $evaluation_items = $pdo->query("SELECT * FROM evaluation_items ORDER BY CAST(item_id AS UNSIGNED) ASC")->fetchAll();
 $photos = json_decode($rec['photos_json'], true) ?: [];
+
+// โหลดข้อมูลตราโลโก้และชื่อโรงเรียน
+$stmt_logo = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_logo'");
+$stmt_logo->execute();
+$school_logo = $stmt_logo->fetchColumn() ?: '';
+
+$stmt_sname = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_name'");
+$stmt_sname->execute();
+$school_name = $stmt_sname->fetchColumn() ?: 'โรงเรียนบ้านหนองหว้า สังกัดสำนักงานเขตพื้นที่การศึกษาประถมศึกษา';
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -130,10 +139,16 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
     <div class="a4-container max-w-4xl mx-auto bg-white border border-slate-300 p-8 sm:p-12 shadow-md rounded-lg space-y-8 select-none">
         
         <!-- Institutional crest ornament & header title -->
-        <div class="text-center space-y-2 border-b-2 border-[#0A3370] pb-5">
-            <div class="text-4xl">🔱</div>
+        <div class="text-center space-y-2 border-b-2 border-[#0A3370] pb-5 flex flex-col items-center justify-center">
+            <?php if (!empty($school_logo)): ?>
+                <div class="w-20 h-20 md:w-24 md:h-24 mb-1">
+                    <img referrerPolicy="no-referrer" src="<?php echo $school_logo; ?>" alt="โลโก้โรงเรียน" class="w-full h-full object-contain mx-auto">
+                </div>
+            <?php else: ?>
+                <div class="text-4xl select-none mb-1">🔱</div>
+            <?php endif; ?>
             <h1 class="text-lg font-extrabold text-[#0A3370]">แบบรายงานสรุปผลการประเมินนิเทศการจัดการเรียนรู้</h1>
-            <p class="text-[11px] font-bold text-amber-600 uppercase tracking-widest leading-relaxed">โรงเรียนบ้านหนองหว้า สังกัดสำนักงานเขตพื้นที่การศึกษาประถมศึกษา</p>
+            <p class="text-[11px] font-bold text-amber-600 uppercase tracking-widest leading-relaxed"><?php echo htmlspecialchars($school_name); ?></p>
             <p class="text-[10px] font-mono text-slate-400">เลขอ้างอิงทำเนียบทะเบียน: <?php echo htmlspecialchars($rec['record_id']); ?> — วันที่พิมพ์ประเมิน: <?php echo htmlspecialchars($rec['date_string']); ?></p>
         </div>
 
@@ -143,7 +158,7 @@ $photos = json_decode($rec['photos_json'], true) ?: [];
             <div class="flex flex-col sm:flex-row gap-5 items-start">
                 <!-- ส่วนแสดงภาพระบุประจำตัวของคุณครูผู้รับประกันนิเทศ -->
                 <div class="w-20 h-24 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center shadow-inner relative">
-                    <?php if (!empty($rec['photo_path']) && file_exists($rec['photo_path'])): ?>
+                    <?php if (!empty($rec['photo_path'])): ?>
                         <img src="<?php echo htmlspecialchars($rec['photo_path']); ?>" alt="รูปคุณครูผู้รับนิเทศ" class="w-full h-full object-cover">
                     <?php else: ?>
                         <div class="text-center">

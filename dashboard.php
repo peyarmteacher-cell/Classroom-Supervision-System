@@ -238,7 +238,7 @@ if (isset($_GET['action_export_csv'])) {
                     👥 ทะเบียนครูผู้สอน
                 </a>
                 <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
-                    📅 สารบบปีการศึกษา
+                    📅 ปีการศึกษา
                 </a>
                 <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                     🚪 ระดับชั้นเรียน
@@ -263,7 +263,7 @@ if (isset($_GET['action_export_csv'])) {
             <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center gap-4">
                 <div class="w-12 h-12 bg-purple-50 text-purple-605 rounded-xl flex items-center justify-center text-xl shadow-xs font-bold">📅</div>
                 <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">สารบบปีการศึกษา</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ปีการศึกษา</div>
                     <div class="text-xl font-bold mt-0.5 text-slate-800"><?php echo $total_years; ?> เทอมศึกษา</div>
                 </div>
             </div>

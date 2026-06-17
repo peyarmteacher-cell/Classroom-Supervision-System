@@ -160,7 +160,7 @@ foreach ($teachers as $t) {
                     👥 ทะเบียนครูผู้สอน
                 </a>
                 <a href="academic_years.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
-                    📅 สารบบปีการศึกษา
+                    📅 ปีการศึกษา
                 </a>
                 <a href="classrooms.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                     🚪 ระดับชั้นเรียน
