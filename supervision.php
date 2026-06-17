@@ -432,7 +432,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
 
                 <!-- Unified Live Photo Gallery Container -->
                 <div class="space-y-2">
-                    <label class="text-xs font-bold text-slate-700 block">📸 ภาพถ่ายบรรยากาศการจัดการเรียนรู้ในคลังขณะนี้ (สูงสุด 4 รูป):</label>
+                    <div class="flex items-center justify-between gap-2">
+                        <label class="text-xs font-bold text-slate-700 block">📸 ภาพถ่ายบรรยากาศการจัดการเรียนรู้ในคลังขณะนี้ (สูงสุด 4 รูป):</label>
+                        <div id="upload_processing_badge" class="hidden text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-[10px] font-bold animate-pulse">
+                            ⏳ กำลังย่อขนาดและประจุรูปภาพ...
+                        </div>
+                    </div>
                     
                     <div id="unified_photo_gallery" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <!-- Dynamic photo items will be injected by JavaScript -->
@@ -608,19 +613,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             if (!input || !input.files || input.files.length === 0) return;
 
             const selectedFiles = Array.from(input.files);
+            const badge = document.getElementById('upload_processing_badge');
+            
+            if (badge) {
+                badge.classList.remove('hidden');
+            }
+
+            let pendingCount = selectedFiles.length;
 
             selectedFiles.forEach(file => {
                 // ตรวจเช็คหากรวมของเดิมแล้วเกิน 4 รูป
                 if (accumulatedCompressedPhotos.length >= 4) {
                     alert('ขออภัยครับ! ระบบจำกัดให้เพิ่มภาพถ่ายเพื่อความสวยงามจัดเรียบลื่นในหน้าพิมพ์รายงานได้สูงสุด 4 ภาพต่อหนึ่งเล่มนิเทศครับ');
+                    pendingCount--;
+                    if (pendingCount === 0 && badge) {
+                        badge.classList.add('hidden');
+                    }
                     return;
                 }
 
                 const reader = new FileReader();
-                reader.readAsDataURL(file);
                 reader.onload = function(event) {
                     const img = new Image();
-                    img.src = event.target.result;
                     img.onload = function() {
                         const MAX_WIDTH = 1024;
                         const MAX_HEIGHT = 1024;
@@ -655,12 +669,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                         } else {
                             alert('ขออภัยครับ! ระบบจำกัดให้เพิ่มภาพประกอบรายงานได้สูงสุด 4 ภาพครับ');
                         }
+
+                        pendingCount--;
+                        if (pendingCount === 0 && badge) {
+                            badge.classList.add('hidden');
+                        }
                     };
+                    img.onerror = function() {
+                        pendingCount--;
+                        if (pendingCount === 0 && badge) {
+                            badge.classList.add('hidden');
+                        }
+                    };
+                    img.src = event.target.result;
                 };
+                reader.onerror = function() {
+                    pendingCount--;
+                    if (pendingCount === 0 && badge) {
+                        badge.classList.add('hidden');
+                    }
+                };
+                reader.readAsDataURL(file);
             });
 
-            // ล้างค่าอินพุตมาตรฐานเพื่อให้สามารถเลือกซ้ำหรือเลือกใหม่ทีละภาพได้ทันทีอย่างไร้ก้าวสะดุด
-            input.value = "";
+            // ชะลอการล้างค่าอินพุตมาตรฐานเล็กน้อยเพื่อป้องกันเบราว์เซอร์มือถือหยุดกระบวนการอ่านไฟล์กลางคัน
+            setTimeout(() => {
+                input.value = "";
+            }, 300);
         }
 
         // รันคำสั่งทันทีหลังเปิดเว็บเพจเสร็จสิ้นความสมบูรณ์
