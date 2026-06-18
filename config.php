@@ -248,14 +248,19 @@ try {
     // ==========================================
     
     // 1. ลงผู้ใช้แอดมินและผู้อำนวยการ
-    $check_users = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `school_code` = '31054002'")->fetchColumn();
-    if ($check_users == 0) {
+    // เปลี่ยนมาตรวจสอบด้วย username โดยตรงแทนการเช็ก school_code ตั้งต้น เพื่อป้องกันข้อผิดพลาด Duplicate entry 'admin' / 'director' for key 'PRIMARY' หลังโรงงานเปลี่ยนรหัสโรงเรียน
+    $check_admin_exists = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `username` = 'admin'")->fetchColumn();
+    if ($check_admin_exists == 0) {
         $admin_pwd = password_hash('123456', PASSWORD_DEFAULT);
+        $stmt_admin = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `fullname`, `role`, `school_code`) VALUES (?, ?, ?, ?, ?)");
+        $stmt_admin->execute(['admin', $admin_pwd, 'ผู้ดูแลระบบคอมพิวเตอร์โรงเรียน', 'admin', '31054002']);
+    }
+
+    $check_director_exists = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `username` = 'director'")->fetchColumn();
+    if ($check_director_exists == 0) {
         $director_pwd = password_hash('123456', PASSWORD_DEFAULT);
-        
-        $stmt = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `fullname`, `role`, `school_code`) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute(['admin', $admin_pwd, 'ผู้ดูแลระบบคอมพิวเตอร์โรงเรียน', 'admin', '31054002']);
-        $stmt->execute(['director', $director_pwd, 'ดร. นิพัทธ์ สรรพวิเชียร', 'director', '31054002']);
+        $stmt_director = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `fullname`, `role`, `school_code`) VALUES (?, ?, ?, ?, ?)");
+        $stmt_director->execute(['director', $director_pwd, 'ดร. นิพัทธ์ สรรพวิเชียร', 'director', '31054002']);
     }
 
     // สร้างบัญชี Super Admin สำหรับจัดการระบบเปิดปิดโรงเรียน
