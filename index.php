@@ -63,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_register_schoo
 // 2. ตรวจสอบการเข้าสู่ระบบ
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
     $active_tab = 'login';
-    $smiss = trim($_POST['school_code'] ?? '');
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
@@ -86,9 +85,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
                 $error = "รหัสผู้ใช้ หรือรหัสผ่าน Super Admin ไม่ถูกต้อง กรุณาติดต่อผู้ควบคุมเซิร์ฟเวอร์หลัก";
             }
         } else {
-            // เข้าใช้งานระบบระดับโรงเรียน
+            // ค้นหาบัญชีผู้ใช้ในตาราง users หรือ teachers เพื่อดึงรหัสโรงเรียน (school_code) ของผู้ใช้นี้อัตโนมัติ
+            $smiss = null;
+            $user = null;
+            
+            $stmt_u = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+            $stmt_u->execute([$username]);
+            $user = $stmt_u->fetch();
+            
+            if ($user && !empty($user['school_code'])) {
+                $smiss = $user['school_code'];
+            } else {
+                // หากไม่พบในตาราง users ลองค้นหาในตารางครูผู้สอนเพื่อดึงรหัสโรงเรียนมา
+                $stmt_tf = $pdo->prepare("SELECT school_code FROM teachers WHERE username = ?");
+                $stmt_tf->execute([$username]);
+                $smiss = $stmt_tf->fetchColumn() ?: null;
+            }
+            
+            // ป้องกัน fallback สำหรับโรงเรียนเดิมที่ไม่มีรหัสในบางฟิลด์
             if (empty($smiss)) {
-                $smiss = '31054002'; // รหัสโรงเรียนตั้งต้นวิเศษ (Backward Compatibility สำหรับโรงเรียนบ้านหนองหว้า)
+                $smiss = '31054002'; // ตั้งค่าเป็นรหัสโรงเรียนบ้านหนองหว้าเริ่มต้น
             }
             
             // เช็คสถานะโรงเรียนก่อนอนุญาตให้ล็อกอิน
@@ -97,18 +113,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
             $school_info = $stmt_sch->fetch();
             
             if (!$school_info) {
-                $error = "รหัสโรงเรียน SMISS '{$smiss}' ไม่ถูกต้อง หรือยังไม่ได้เข้าร่วมลงทะเบียน";
+                $error = "ชื่อล็อกอินผู้ใช้งานหรือข้อมูลสิทธิ์สังกัดโรงเรียนไม่ถูกต้องในระบบ";
             } else if ($school_info['status'] === 'deactivated') {
                 $error = "ขออภัยครับ! บริการของโรงเรียนท่านถูกระงับสิทธิ์เข้าใช้งานชั่วคราว กรุณาติดต่อ Super Admin";
             } else if ($school_info['status'] === 'pending') {
                 $error = "ใบสมัครลงทะเบียนโรงเรียนของท่านอยู่ในคิว 'รออนุมัติงาน' เปิดสิทธิ์จาก Super Admin";
             } else {
-                // ตรวจหาประวัติยูสเซอร์ (รองรับรูปบัญชีธรรมดา และ prefixed $smiss_$username)
-                $prefixed_user = $smiss . '_' . $username;
-                $stmt = $pdo->prepare("SELECT * FROM users WHERE (username = ? OR username = ?) AND school_code = ?");
-                $stmt->execute([$username, $prefixed_user, $smiss]);
-                $user = $stmt->fetch();
-                
+                // ตรวจหาระดับรหัสผ่าน
                 if ($user && ($password === '123456' || password_verify($password, $user['password']))) {
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['fullname'] = $user['fullname'];
@@ -123,15 +134,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
                     header("Location: dashboard.php");
                     exit;
                 } else {
-                    // ตรวจหาระดับฐานครูผู้สอนเพิ่ม (สำหรับครูเก่าย้ายเข้า)
-                    $stmt_t = $pdo->prepare("SELECT * FROM teachers WHERE (username = ? OR username = ?) AND school_code = ?");
-                    $stmt_t->execute([$username, $prefixed_user, $smiss]);
+                    // ค้นหารายชื่อจากตารางทะเบียนครู (สำหรับคุณครูใหม่ที่ประสงค์ลงทะเบียนแต่ยังไม่มี username ใน user)
+                    $stmt_t = $pdo->prepare("SELECT * FROM teachers WHERE username = ? AND school_code = ?");
+                    $stmt_t->execute([$username, $smiss]);
                     $teacher = $stmt_t->fetch();
                     
                     if ($teacher && $password === '123456') {
-                        // สร้างประวัติผู้ใช้งานสากล
-                        $stmt_u_chk = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
-                        $stmt_u_chk->execute([$teacher['username']]);
+                        // ปั่นและบันทึกผู้ใช้บัญชีหลักประสานงานขึ้นมาโดยอิงเกลือความปลอดภัยอัตโนมัติ
+                        $stmt_u_chk = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND school_code = ?");
+                        $stmt_u_chk->execute([$teacher['username'], $smiss]);
                         if ($stmt_u_chk->fetchColumn() == 0) {
                             $hashed_pwd = password_hash('123456', PASSWORD_DEFAULT);
                             $stmt_ins = $pdo->prepare("INSERT INTO users (username, password, fullname, role, school_code) VALUES (?, ?, ?, 'teacher', ?)");
@@ -145,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
                         header("Location: dashboard.php");
                         exit;
                     } else {
-                        $error = "ชื่อล็อกอินหรือรหัสผ่านระบบคุณครูของรหัส SMISS {$smiss} ไม่ถูกต้อง กรุณาติดต่อแอดมินโรงเรียน";
+                        $error = "ชื่อล็อกอินหรือรหัสผ่านระบบของบัญชีผู้สังกัดไม่ถูกต้อง กรุณาติดต่อสายแอดมินวิชาการโรงเรียน";
                     }
                 }
             }
@@ -223,21 +234,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
         <div id="form_login_container" class="<?php echo $active_tab === 'login' ? '' : 'hidden' ?>">
             <form method="POST" class="space-y-4">
                 <input type="hidden" name="action_login" value="1">
-                
-                <div class="space-y-1">
-                    <label class="text-xs font-bold text-slate-500 block">รหัส SMISS โรงเรียน (8 หลัก) *</label>
-                    <div class="relative">
-                        <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">🆔</span>
-                        <input type="number" name="school_code" placeholder="เช่น 31054002 (หรือข้ามหากเป็น Super Admin / โรงเรียนเดิม)" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none font-semibold">
-                    </div>
-                    <span class="text-[9px] text-slate-400 leading-normal block">เว้นว่างไว้เพื่อเข้าสู่ระบบโรงเรียนบ้านหนองหว้า หรือบัญชี Super Admin</span>
-                </div>
 
                 <div class="space-y-1">
                     <label class="text-xs font-bold text-slate-500 block">ชื่อผู้ใช้งานล็อกอิน (Username) *</label>
                     <div class="relative">
                         <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">👤</span>
-                        <input type="text" name="username" required placeholder="ระบุชื่อภาษาอังกฤษหรือรหัสคุณครูส่วนบุคคล" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none">
+                        <input type="text" name="username" required placeholder="ระบุชื่อภาษาอังกฤษหรือรหัสคุณครูส่วนบุคคล" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none font-semibold">
                     </div>
                 </div>
 
@@ -245,11 +247,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
                     <label class="text-xs font-bold text-slate-500 block">รหัสผ่านบัญชีโรงเรียน (Password) *</label>
                     <div class="relative">
                         <span class="absolute left-3.5 top-2.5 text-slate-400 text-sm">🔑</span>
-                        <input type="password" name="password" required placeholder="ระบุพาสเวิร์ดส่วนของบัญชี" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none">
+                        <input type="password" name="password" required placeholder="ระบุพาสเวิร์ดส่วนของบัญชี" class="w-full pl-9 pr-4 py-2 bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-[#0A3370] outline-none font-semibold">
                     </div>
                 </div>
 
-                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-[#0A3370] to-[#1E3A8A] hover:opacity-95 text-white font-bold rounded-xl text-xs shadow-md transition duration-150 cursor-pointer text-center block">
+                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-[#0A3370] to-[#1E3A8A] hover:opacity-95 text-white font-bold rounded-xl text-xs shadow-md transition duration-150 cursor-pointer text-center block border-none">
                     🚀 เข้าสู่ระบบประเมินนิเทศ
                 </button>
             </form>
