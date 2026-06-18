@@ -175,8 +175,8 @@ foreach ($teachers as $t) {
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <div>
-                    <span class="font-extrabold block text-slate-805">เปรียบเทียบตารางค่าเฉลี่ยจำแนกตามหมวดเกรด</span>
-                    <span class="text-[10px] text-slate-400 block mt-0.5">ใช้ค้นหาจุดที่สมควรเสริมแรงหรือการประเมินวิทยวิชาการของคุณครู</span>
+                    <span class="font-extrabold block text-slate-805">ตารางเปรียบเทียบคะแนนเฉลี่ยผลการนิเทศชั้นเรียนจำแนกตามหมวดการประเมิน</span>
+                    <span class="text-[10px] text-slate-400 block mt-0.5">เพื่อใช้วิเคราะห์จุดเด่น จุดที่ควรพัฒนา และวางแผนการพัฒนาคุณภาพการจัดการเรียนรู้ของครูผู้สอน</span>
                 </div>
             </div>
             
@@ -196,19 +196,18 @@ foreach ($teachers as $t) {
         <!-- Comparison Analytical Matrix table -->
         <div class="bg-white border rounded-2xl p-5 shadow-sm text-xs space-y-4">
             <div class="border-b pb-2">
-                <h3 class="font-extrabold text-[#0A3370] text-sm">ตารางผลการเรียนรู้และสุขภาวะครูจำแนกคุณภาพร้อยละ (%)</h3>
-                <p class="text-[10px] text-slate-400 mt-0.5">คะแนนสะกดเป็นเปอร์เซ็นต์ย่อยในแต่ละหมวดคำถามกระทรวงศึกษาธิการ เพื่อสะดวกในการสังเกต</p>
+                <h3 class="font-extrabold text-[#0A3370] text-sm">ตารางเปรียบเทียบผลการนิเทศชั้นเรียนรายครู จำแนกตามหมวดการประเมินและแสดงผลเป็นร้อยละ (%)</h3>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead class="bg-slate-50 text-slate-650 font-extrabold text-[11px]">
                         <tr>
-                            <th class="p-3">ครูผู้รับระเบียนนิเทศ</th>
-                            <th class="p-3">ตำแหน่ง / ดำรงงาน</th>
-                            <th class="p-3 text-center">ประเมินสะสม</th>
+                            <th class="p-3">ครูผู้รับการนิเทศ</th>
+                            <th class="p-3">ตำแหน่ง</th>
+                            <th class="p-3 text-center">จำนวนครั้งที่ได้รับการนิเทศ</th>
                             <th class="p-3 text-center text-blue-900">หมวด 1 (ห้องเรียน)</th>
-                            <th class="p-3 text-center text-purple-800">หมวด 2 (บริหารหลัก)</th>
+                            <th class="p-3 text-center text-purple-800">หมวด 2 (การบริหารจัดการห้องเรียน)</th>
                             <th class="p-3 text-center text-amber-700">หมวด 3 (ครูผู้สอน)</th>
                             <th class="p-3 text-center text-teal-800">หมวด 4 (นักเรียน)</th>
                             <th class="p-3 text-center bg-[#0A3370]/5 text-[#0A3370] font-black">เฉลี่ยรวม (%)</th>
@@ -225,7 +224,7 @@ foreach ($teachers as $t) {
                                 <td class="p-3 text-center">
                                     <?php if ($data['sessions_count'] > 0): ?>
                                         <span class="px-2 py-0.5 bg-emerald-50 text-emerald-800 font-bold rounded text-[10px]">
-                                            <?php echo $data['sessions_count']; ?> คาบศึกษา
+                                            <?php echo $data['sessions_count']; ?> ครั้ง
                                         </span>
                                     <?php else: ?>
                                         <span class="px-2 py-0.5 bg-slate-50 text-slate-400 text-[9px] rounded">ไม่มีข้อมูล</span>
@@ -257,11 +256,11 @@ foreach ($teachers as $t) {
             </div>
 
             <!-- Legends guides explanation -->
-            <div class="bg-[#FAF8F5] p-3 rounded-xl border border-dashed border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-3 text-slate-500 text-[10px] leading-relaxed select-none">
-                <div><strong>หมวด 1 สภาพห้องเรียน:</strong> มีป้ายนิเทศข้อมูล ตราสัญลักษณ์ชาติและการจัดผลงานและบรรยากาศห้องเรียนเอื้อการเรียนศึกษา</div>
-                <div><strong>หมวด 2 การบริหารจัดการห้องเรียน:</strong> บูรณาการเสริมแรงเชิงบวก ทำงานกลุ่ม เพื่อนช่วยเพื่อนและการมีส่วนร่วมครบรส</div>
-                <div><strong>หมวด 3 ครูผู้สอน:</strong> สตรีมหลักสูตร แผนกระบวนการ สื่อเทคโนโลยีไอที ทะเบียนดูแลวิจัยและบุคลิกแต่งกาย</div>
-                <div><strong>หมวด 4 นักเรียน:</strong> ปฏิบัติงานตรงเป้า บรรลุปลายทาง กระตือรือร้น มีระเบียบวินัยแต่งกายสะอาดระเบียบงาม</div>
+            <div class="bg-[#FAF8F5] p-3 rounded-xl border border-dashed border-slate-200 grid grid-cols-1 sm:grid-cols-4 gap-3 text-slate-500 text-[10.5px] leading-relaxed select-none">
+                <div><strong>หมวด 1 สภาพห้องเรียน:</strong> มีป้ายนิเทศ ข้อมูลห้องเรียนเป็นปัจจุบัน แสดงผลงานนักเรียน และมีบรรยากาศเอื้อต่อการเรียนรู้</div>
+                <div><strong>หมวด 2 การบริหารจัดการห้องเรียน:</strong> ใช้การเสริมแรงเชิงบวก จัดกิจกรรมกลุ่ม และส่งเสริมการมีส่วนร่วมของนักเรียนทุกคน</div>
+                <div><strong>หมวด 3 ครูผู้สอน:</strong> มีแผนการสอน ใช้สื่อเทคโนโลยี ดูแลนักเรียนรายบุคคล ดำเนินการวิจัยในชั้นเรียน และปฏิบัติตนเหมาะสม</div>
+                <div><strong>หมวด 4 นักเรียน:</strong> ปฏิบัติงานตามที่ได้รับมอบหมาย บรรลุจุดประสงค์การเรียนรู้ มีความกระตือรือร้น มีวินัย และแต่งกายถูกระเบียบ</div>
             </div>
         </div>
 
