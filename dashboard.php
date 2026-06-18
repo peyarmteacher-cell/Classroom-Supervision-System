@@ -12,12 +12,19 @@ if (!isset($_SESSION['username'])) {
 }
 
 $user_role = $_SESSION['role'] ?? 'teacher';
+// ซุปเปอร์แอดมินให้วิ่งเข้าส่วนกลางโดยอัตโนมัติ
+if ($user_role === 'super_admin') {
+    header("Location: super_admin.php");
+    exit;
+}
+
 $user_fullname = $_SESSION['fullname'] ?? '';
 $my_teacher_id = $_SESSION['teacher_id'] ?? '';
+$school_code = $_SESSION['school_code'] ?? '31054002';
 
 if ($user_role === 'teacher' && empty($my_teacher_id) && isset($_SESSION['username'])) {
-    $stmt_tid = $pdo->prepare("SELECT teacher_id FROM teachers WHERE username = ?");
-    $stmt_tid->execute([$_SESSION['username']]);
+    $stmt_tid = $pdo->prepare("SELECT teacher_id FROM teachers WHERE username = ? AND school_code = ?");
+    $stmt_tid->execute([$_SESSION['username'], $school_code]);
     $my_teacher_id = $stmt_tid->fetchColumn() ?: '';
     $_SESSION['teacher_id'] = $my_teacher_id;
 }
@@ -29,8 +36,8 @@ $search_query = trim($_GET['search'] ?? '');
 // ปฏิบัติการลบเรคอร์ดนิเทศ
 if (isset($_GET['delete_record_id']) && ($user_role === 'admin' || $user_role === 'director')) {
     $delete_id = $_GET['delete_record_id'];
-    $stmt = $pdo->prepare("DELETE FROM supervisions WHERE record_id = ?");
-    $stmt->execute([$delete_id]);
+    $stmt = $pdo->prepare("DELETE FROM supervisions WHERE record_id = ? AND school_code = ?");
+    $stmt->execute([$delete_id, $school_code]);
     header("Location: dashboard.php");
     exit;
 }
@@ -38,32 +45,43 @@ if (isset($_GET['delete_record_id']) && ($user_role === 'admin' || $user_role ==
 // ------------------------------------------
 // โหลดสารบบทางสถิติมาเพื่อวาดบัตรประเมิน (Metrics Stats)
 // ------------------------------------------
-$total_teachers = $pdo->query("SELECT COUNT(*) FROM teachers")->fetchColumn();
-$total_years = $pdo->query("SELECT COUNT(*) FROM academic_years")->fetchColumn();
+$stmt_t_cnt = $pdo->prepare("SELECT COUNT(*) FROM teachers WHERE school_code = ?");
+$stmt_t_cnt->execute([$school_code]);
+$total_teachers = $stmt_t_cnt->fetchColumn();
+
+$stmt_y_cnt = $pdo->prepare("SELECT COUNT(*) FROM academic_years WHERE school_code = ?");
+$stmt_y_cnt->execute([$school_code]);
+$total_years = $stmt_y_cnt->fetchColumn();
 
 // ค้นหาจำเพาะจำนวนการประเมิน
 if ($user_role === 'teacher') {
-    $total_records = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE teacher_id = ?");
-    $total_records->execute([$my_teacher_id]);
+    $total_records = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE teacher_id = ? AND school_code = ?");
+    $total_records->execute([$my_teacher_id, $school_code]);
     $total_records = $total_records->fetchColumn();
 
-    $total_submitted = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE teacher_id = ? AND status = 'submitted'");
-    $total_submitted->execute([$my_teacher_id]);
+    $total_submitted = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE teacher_id = ? AND status = 'submitted' AND school_code = ?");
+    $total_submitted->execute([$my_teacher_id, $school_code]);
     $total_submitted = $total_submitted->fetchColumn();
 } else {
-    $total_records = $pdo->query("SELECT COUNT(*) FROM supervisions")->fetchColumn();
-    $total_submitted = $pdo->query("SELECT COUNT(*) FROM supervisions WHERE status = 'submitted'")->fetchColumn();
+    $stmt_r_cnt = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE school_code = ?");
+    $stmt_r_cnt->execute([$school_code]);
+    $total_records = $stmt_r_cnt->fetchColumn();
+
+    $stmt_s_cnt = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE status = 'submitted' AND school_code = ?");
+    $stmt_s_cnt->execute([$school_code]);
+    $total_submitted = $stmt_s_cnt->fetchColumn();
 }
 
 // คำนวณร้อยอัตรารวมของคะแนนเฉลี่ยคุณครูสะสม
 $score_average_pct = 0;
-$records_for_avg_query = "SELECT scores_json FROM supervisions";
 if ($user_role === 'teacher') {
-    $records_for_avg = $pdo->prepare("SELECT scores_json FROM supervisions WHERE teacher_id = ? AND status = 'submitted'");
-    $records_for_avg->execute([$my_teacher_id]);
+    $records_for_avg = $pdo->prepare("SELECT scores_json FROM supervisions WHERE teacher_id = ? AND status = 'submitted' AND school_code = ?");
+    $records_for_avg->execute([$my_teacher_id, $school_code]);
     $records_for_avg = $records_for_avg->fetchAll(PDO::FETCH_COLUMN);
 } else {
-    $records_for_avg = $pdo->query("SELECT scores_json FROM supervisions WHERE status = 'submitted'")->fetchAll(PDO::FETCH_COLUMN);
+    $records_for_avg = $pdo->prepare("SELECT scores_json FROM supervisions WHERE status = 'submitted' AND school_code = ?");
+    $records_for_avg->execute([$school_code]);
+    $records_for_avg = $records_for_avg->fetchAll(PDO::FETCH_COLUMN);
 }
 
 if (!empty($records_for_avg)) {
@@ -84,13 +102,19 @@ if (!empty($records_for_avg)) {
 }
 
 // โหลดรายการปีการศึกษาเพื่อทำ Dropdown Filter
-$years_list = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
+$stmt_yl = $pdo->prepare("SELECT * FROM academic_years WHERE school_code = ? ORDER BY year DESC, semester DESC");
+$stmt_yl->execute([$school_code]);
+$years_list = $stmt_yl->fetchAll();
 
 // ------------------------------------------
 // การจัดสืบค้นข้อมูลบันทึกนิเทศคาบเรียนพร้อมการทำ Filter
 // ------------------------------------------
 $params = [];
 $query_parts = [];
+
+// แยกตามโรงเรียนด้วยเสมอ
+$query_parts[] = "s.school_code = :school_code";
+$params[':school_code'] = $school_code;
 
 if ($user_role === 'teacher') {
     $query_parts[] = "s.teacher_id = :my_teacher_id";

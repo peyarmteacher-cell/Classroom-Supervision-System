@@ -17,10 +17,11 @@ $error_msg = '';
 // ลบเทอมปีการศึกษาออกจากทำเนียบสถิติ
 if (isset($_GET['delete_id'])) {
     $del_id = $_GET['delete_id'];
+    $school_code = $_SESSION['school_code'] ?? '31054002';
     
     // ลบประเด็นที่โยงแบบ Cascade หรือป้องกันข้อซักถาม
-    $stmt = $pdo->prepare("DELETE FROM academic_years WHERE year_id = ?");
-    $stmt->execute([$del_id]);
+    $stmt = $pdo->prepare("DELETE FROM academic_years WHERE year_id = ? AND school_code = ?");
+    $stmt->execute([$del_id, $school_code]);
 
     $success_msg = 'ลบปีการศึกษาและภาคเรียนออกจากสารบบทะเบียนเรียบร้อยแล้ว';
     header("Location: academic_years.php?success_msg=" . urlencode($success_msg));
@@ -31,18 +32,19 @@ if (isset($_GET['delete_id'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_add_year'])) {
     $year = trim($_POST['year'] ?? '');
     $semester = trim($_POST['semester'] ?? '');
+    $school_code = $_SESSION['school_code'] ?? '31054002';
 
     if (!empty($year) && !empty($semester)) {
-        $new_year_id = "YR{$year}-{$semester}";
+        $new_year_id = "YR{$year}-{$semester}-{$school_code}";
 
         // เช็คมิดิซ้ำความพยายามเดิม
-        $chk = $pdo->prepare("SELECT COUNT(*) FROM academic_years WHERE year_id = ?");
-        $chk->execute([$new_year_id]);
+        $chk = $pdo->prepare("SELECT COUNT(*) FROM academic_years WHERE year_id = ? AND school_code = ?");
+        $chk->execute([$new_year_id, $school_code]);
         if ($chk->fetchColumn() > 0) {
-            $error_msg = "ปีการศึกษา {$year} ภาคเรียนที่ {$semester} ได้รับการพัสดุลงทะเบียนจัดเก็บไว้ก่อนหน้าเรียบร้อยแล้ว";
+            $error_msg = "ปีการศึกษา {$year} ภาคเรียนที่ {$semester} ได้รับการลงทะเบียนจัดเก็บไว้ก่อนหน้าเรียบร้อยแล้ว";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO academic_years (year_id, year, semester) VALUES (?, ?, ?)");
-            $stmt->execute([$new_year_id, $year, $semester]);
+            $stmt = $pdo->prepare("INSERT INTO academic_years (year_id, year, semester, school_code) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$new_year_id, $year, $semester, $school_code]);
 
             $success_msg = "เพิ่มภาคการเรียน ปีการศึกษา {$year} เทอม {$semester} สู่สมรรถนะความรู้สำเร็จ";
             header("Location: academic_years.php?success_msg=" . urlencode($success_msg));
@@ -58,8 +60,11 @@ if (isset($_GET['success_msg'])) {
     $success_msg = $_GET['success_msg'];
 }
 
-// โหลดข้อมูลเทอมทั้งหมด
-$all_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
+// โหลดข้อมูลเทอมทั้งหมดร่วมของโรงเรียน
+$school_code = $_SESSION['school_code'] ?? '31054002';
+$stmt_all_y = $pdo->prepare("SELECT * FROM academic_years WHERE school_code = ? ORDER BY year DESC, semester DESC");
+$stmt_all_y->execute([$school_code]);
+$all_years = $stmt_all_y->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="th">

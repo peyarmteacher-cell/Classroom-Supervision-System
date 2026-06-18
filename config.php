@@ -94,6 +94,53 @@ try {
     // ระบบการอัพเดทฐานข้อมูลและตารางโดยอัตโนมัติ (Automated Schema Installer)
     // =========================================================
     
+    // ตารางโรงเรียนที่ลงทะเบียนใช้งานระบบ
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `schools` (
+        `school_code` VARCHAR(8) NOT NULL,
+        `school_name` VARCHAR(255) NOT NULL,
+        `affiliation` VARCHAR(255) NOT NULL,
+        `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+        `gdrive_app_url` VARCHAR(255) DEFAULT NULL,
+        `gdrive_folder_id` VARCHAR(255) DEFAULT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`school_code`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    // เสียบข้อมูลโรงเรียนเริ่มต้นตั้งต้น (โรงเรียนบ้านหนองหว้า) อนุมัติใช้งานทันที
+    $check_default_school = $pdo->query("SELECT COUNT(*) FROM `schools` WHERE `school_code` = '31054002'")->fetchColumn();
+    if ($check_default_school == 0) {
+        $pdo->exec("INSERT INTO `schools` (`school_code`, `school_name`, `affiliation`, `status`) VALUES 
+            ('31054002', 'โรงเรียนบ้านหนองหว้า', 'สำนักงานเขตพื้นที่การศึกษาประถมศึกษาบุรีรัมย์ เขต 3', 'approved')");
+    }
+
+    // เพิ่มคอลัมน์ school_code เพื่อแยกข้อมูลโรงเรียนแยกจากกันอย่างชัดเจนตามกฎ 8 หลัก SMISS
+    $tables_to_alter = [
+        'teachers' => "ALTER TABLE `teachers` ADD COLUMN `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002'",
+        'academic_years' => "ALTER TABLE `academic_years` ADD COLUMN `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002'",
+        'supervisions' => "ALTER TABLE `supervisions` ADD COLUMN `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002'",
+        'classrooms' => "ALTER TABLE `classrooms` ADD COLUMN `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002'",
+        'users' => "ALTER TABLE `users` ADD COLUMN `school_code` VARCHAR(8) DEFAULT '31054002'",
+        'school_settings' => "ALTER TABLE `school_settings` ADD COLUMN `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002'"
+    ];
+
+    foreach ($tables_to_alter as $table => $alter_sql) {
+        try {
+            $check_col = $pdo->query("SHOW COLUMNS FROM `{$table}` LIKE 'school_code'")->fetch();
+            if (!$check_col) {
+                $pdo->exec($alter_sql);
+            }
+        } catch (Exception $e) {
+            // ดำเนินการผ่านอย่างปลอดภัยกรณีคอลัมน์มีอยู่แล้ว
+        }
+    }
+
+    // ปรับให้ตาราง school_settings มี composite key (school_code, setting_key)
+    try {
+        $pdo->exec("ALTER TABLE `school_settings` DROP PRIMARY KEY, ADD PRIMARY KEY (`school_code`, `setting_key`);");
+    } catch (Exception $e) {
+        // ดำเนินการผ่านอย่างปลอดภัยกรณีระบุ composite key สำเร็จอยู่แล้ว
+    }
+
     // ตารางคุณครูผู้สอน
     $pdo->exec("CREATE TABLE IF NOT EXISTS `teachers` (
         `teacher_id` VARCHAR(50) NOT NULL,
@@ -103,6 +150,7 @@ try {
         `phone` VARCHAR(20) DEFAULT NULL,
         `username` VARCHAR(50) DEFAULT NULL,
         `photo_path` VARCHAR(255) DEFAULT NULL,
+        `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002',
         PRIMARY KEY (`teacher_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
@@ -126,6 +174,7 @@ try {
         `year_id` VARCHAR(50) NOT NULL,
         `year` VARCHAR(10) NOT NULL,
         `semester` VARCHAR(5) NOT NULL,
+        `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002',
         PRIMARY KEY (`year_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
@@ -153,6 +202,7 @@ try {
         `evaluator_name` VARCHAR(150) NOT NULL,
         `evaluator_position` VARCHAR(100) NOT NULL,
         `status` VARCHAR(20) NOT NULL DEFAULT 'draft',
+        `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002',
         PRIMARY KEY (`record_id`),
         KEY `teacher_id` (`teacher_id`),
         KEY `year_id` (`year_id`),
@@ -173,21 +223,24 @@ try {
         `password` VARCHAR(255) NOT NULL,
         `fullname` VARCHAR(150) NOT NULL,
         `role` VARCHAR(20) NOT NULL DEFAULT 'teacher',
+        `school_code` VARCHAR(8) DEFAULT '31054002',
         PRIMARY KEY (`username`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
     // ตารางระดับชั้นสำหรับสร้างตัวเลือกมาตรฐาน
     $pdo->exec("CREATE TABLE IF NOT EXISTS `classrooms` (
         `class_id` INT AUTO_INCREMENT,
-        `class_name` VARCHAR(100) NOT NULL UNIQUE,
+        `class_name` VARCHAR(100) NOT NULL,
+        `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002',
         PRIMARY KEY (`class_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
     // ตารางเก็บการตั้งค่าโรงเรียน เช่น โลโก้
     $pdo->exec("CREATE TABLE IF NOT EXISTS `school_settings` (
+        `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002',
         `setting_key` VARCHAR(100) NOT NULL,
         `setting_value` LONGTEXT DEFAULT NULL,
-        PRIMARY KEY (`setting_key`)
+        PRIMARY KEY (`school_code`, `setting_key`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
     // ==========================================
@@ -195,14 +248,22 @@ try {
     // ==========================================
     
     // 1. ลงผู้ใช้แอดมินและผู้อำนวยการ
-    $check_users = $pdo->query("SELECT COUNT(*) FROM `users`")->fetchColumn();
+    $check_users = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `school_code` = '31054002'")->fetchColumn();
     if ($check_users == 0) {
         $admin_pwd = password_hash('123456', PASSWORD_DEFAULT);
         $director_pwd = password_hash('123456', PASSWORD_DEFAULT);
         
-        $stmt = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `fullname`, `role`) VALUES (?, ?, ?, ?)");
-        $stmt->execute(['admin', $admin_pwd, 'ผู้ดูแลระบบคอมพิวเตอร์โรงเรียน', 'admin']);
-        $stmt->execute(['director', $director_pwd, 'ดร. นิพัทธ์ สรรพวิเชียร', 'director']);
+        $stmt = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `fullname`, `role`, `school_code`) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute(['admin', $admin_pwd, 'ผู้ดูแลระบบคอมพิวเตอร์โรงเรียน', 'admin', '31054002']);
+        $stmt->execute(['director', $director_pwd, 'ดร. นิพัทธ์ สรรพวิเชียร', 'director', '31054002']);
+    }
+
+    // สร้างบัญชี Super Admin สำหรับจัดการระบบเปิดปิดโรงเรียน
+    $check_super = $pdo->query("SELECT COUNT(*) FROM `users` WHERE `username` = 'superadmin'")->fetchColumn();
+    if ($check_super == 0) {
+        $super_pwd = password_hash('123456', PASSWORD_DEFAULT);
+        $stmt_super = $pdo->prepare("INSERT INTO `users` (`username`, `password`, `fullname`, `role`, `school_code`) VALUES (?, ?, ?, ?, NULL)");
+        $stmt_super->execute(['superadmin', $super_pwd, 'ผู้ดูแลระบบระบบสูงสุด (Super Admin)', 'super_admin']);
     }
 
     // 2. ลงเกณฑ์การประเมิน 20 ข้อ (อัปเดตสตรีมตามคำขอของผู้ใช้เพื่อย้ายเข้าสถานะจริง 4 หมวดหลัก)
@@ -371,6 +432,112 @@ try {
     </html>
     <?php
     exit;
+}
+
+// ฟังก์ชันอำนวยความสะดวกในการจัดอัปโหลดรูปภาพไปยัง Google Drive ผ่านโค้ด GAS Web App
+function upload_image_to_gdrive_if_configured($image_data, $filename, $school_code, $pdo) {
+    if (empty($image_data)) {
+        return null;
+    }
+    
+    // หากข้อมูลภาพเป็น URL เว็บอยู่แล้ว ให้ส่งกลับทันทีโดยไม่ต้องประมวลผลเพิ่ม
+    if (strpos($image_data, 'http://') === 0 || strpos($image_data, 'https://') === 0) {
+        return $image_data;
+    }
+    
+    // โหลดการตั้งค่าการเชื่อมต่อ Google Drive ของแต่ละโรงเรียน
+    $stmt = $pdo->prepare("SELECT gdrive_app_url, gdrive_folder_id FROM schools WHERE school_code = ?");
+    $stmt->execute([$school_code]);
+    $gdrive = $stmt->fetch();
+    
+    // กาหาไม่พบ หรือยังไม่ได้เซ็ตอัป Google Drive ให้บันทึกโหมด fallback เก็บใส่เครื่อง /uploads
+    if (!$gdrive || empty($gdrive['gdrive_app_url']) || empty($gdrive['gdrive_folder_id'])) {
+        if (strpos($image_data, 'data:image/') === 0) {
+            $parts = explode(',', $image_data);
+            $meta = $parts[0];
+            $payload = $parts[1] ?? '';
+            
+            $ext = 'jpg';
+            if (strpos($meta, 'image/png') !== false) {
+                $ext = 'png';
+            } elseif (strpos($meta, 'image/gif') !== false) {
+                $ext = 'gif';
+            }
+            
+            $file_content = base64_decode($payload);
+            $new_file_name = 'local_' . uniqid() . '_' . time() . '.' . $ext;
+            $dest_path = 'uploads/' . $new_file_name;
+            if (file_put_contents(__DIR__ . '/' . $dest_path, $file_content)) {
+                return $dest_path;
+            }
+        }
+        return $image_data; // ส่งค่าเดิมกลับหากไม่ใช่ base64 string
+    }
+    
+    // สกัดข้อมูล Base64 และ Mime Type เพื่อส่งเข้า Google Apps Script
+    $base64_payload = '';
+    $mime_type = 'image/jpeg';
+    
+    if (strpos($image_data, 'data:image/') === 0) {
+        $parts = explode(',', $image_data);
+        $meta = $parts[0];
+        $base64_payload = $parts[1] ?? '';
+        
+        if (preg_match('/data:([^;]+);base64/', $meta, $matches)) {
+            $mime_type = $matches[1];
+        }
+    } else {
+        // หากเป็นตำแหน่งไฟล์บนเครื่อง (เช่น รูปภาพครูที่ถูกย้ายจาก $_FILES)
+        if (file_exists(__DIR__ . '/' . $image_data)) {
+            $base64_payload = base64_encode(file_get_contents(__DIR__ . '/' . $image_data));
+            $mime_type = mime_content_type(__DIR__ . '/' . $image_data) ?: 'image/jpeg';
+        } elseif (file_exists($image_data)) {
+            $base64_payload = base64_encode(file_get_contents($image_data));
+            $mime_type = mime_content_type($image_data) ?: 'image/jpeg';
+        } else {
+            return $image_data; // ส่งค่าคืนหากไม่พบไฟล์จริง
+        }
+    }
+    
+    // แปลงชุดข้อมูลแบบ JSON ส่งตรงไปยัง Google Apps Script Web App
+    $post_data = json_encode([
+        'folder_id' => $gdrive['gdrive_folder_id'],
+        'filename' => $filename,
+        'filedata' => $base64_payload,
+        'mime_type' => $mime_type
+    ]);
+    
+    $ch = curl_init($gdrive['gdrive_app_url']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($http_code === 200 && !empty($response)) {
+        $result = json_decode($response, true);
+        if ($result && !empty($result['success']) && !empty($result['url'])) {
+            return $result['url']; // คืนเฉพาะ URL แสดงผลตรงบนเซิร์ฟเวอร์กูเกิลไดรฟ์
+        }
+    }
+    
+    // กรณี GAS ขัดข้อง ให้ทำการบันทึกประวัติใส่เครื่อง /uploads ชั่วคราวป้องกันงานสูญหาย
+    if (strpos($image_data, 'data:image/') === 0) {
+        $parts = explode(',', $image_data);
+        $payload = $parts[1] ?? '';
+        $file_content = base64_decode($payload);
+        $new_file_name = 'gas_fallback_' . uniqid() . '.' . (strpos($mime_type, 'png') !== false ? 'png' : 'jpg');
+        $dest_path = 'uploads/' . $new_file_name;
+        file_put_contents(__DIR__ . '/' . $dest_path, $file_content);
+        return $dest_path;
+    }
+    
+    return $image_data;
 }
 
 // เริ่มต้น Session สำหรับใช้งานบัญชีลงทะเบียนทั่วไป

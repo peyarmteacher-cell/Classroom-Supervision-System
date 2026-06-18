@@ -19,8 +19,9 @@ $edit_name = '';
 
 // โหลดข้อมูลหากอยู่ในโหมดแก้ไข
 if ($edit_id) {
-    $stmt_load = $pdo->prepare("SELECT * FROM classrooms WHERE class_id = ?");
-    $stmt_load->execute([$edit_id]);
+    $school_code = $_SESSION['school_code'] ?? '31054002';
+    $stmt_load = $pdo->prepare("SELECT * FROM classrooms WHERE class_id = ? AND school_code = ?");
+    $stmt_load->execute([$edit_id, $school_code]);
     $class_data = $stmt_load->fetch();
     if ($class_data) {
         $edit_name = $class_data['class_name'];
@@ -33,10 +34,11 @@ if (isset($_GET['delete_id'])) {
         $error_msg = 'เฉพาะสิทธิ์แอดมิน (Admin) เท่านั้นที่สามารถลบข้อมูลระดับชั้นเรียนได้';
     } else {
         $del_id = $_GET['delete_id'];
+        $school_code = $_SESSION['school_code'] ?? '31054002';
         
         try {
-            $stmt = $pdo->prepare("DELETE FROM classrooms WHERE class_id = ?");
-            $stmt->execute([$del_id]);
+            $stmt = $pdo->prepare("DELETE FROM classrooms WHERE class_id = ? AND school_code = ?");
+            $stmt->execute([$del_id, $school_code]);
             $success_msg = 'ลบระดับชั้นเรียนออกจากสารบบเลือกเรียบร้อยแล้ว';
             header("Location: classrooms.php?success_msg=" . urlencode($success_msg));
             exit;
@@ -52,18 +54,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_class']))
         $error_msg = 'เฉพาะสิทธิ์แอดมิน (Admin) เท่านั้นที่สามารถบันทึกหรือแก้ไขระดับชั้นเรียนได้';
     } else {
         $class_name = trim($_POST['class_name'] ?? '');
+        $school_code = $_SESSION['school_code'] ?? '31054002';
 
         if (!empty($class_name)) {
             try {
                 if ($edit_id) {
                     // อัพเดตระดับชั้นเดิม
-                    $stmt_update = $pdo->prepare("UPDATE classrooms SET class_name = ? WHERE class_id = ?");
-                    $stmt_update->execute([$class_name, $edit_id]);
+                    $stmt_update = $pdo->prepare("UPDATE classrooms SET class_name = ? WHERE class_id = ? AND school_code = ?");
+                    $stmt_update->execute([$class_name, $edit_id, $school_code]);
                     $success_msg = 'แก้ไขรายละเอียดระดับชั้นเรียนเรียบร้อยแล้ว';
                 } else {
                     // เขียนเพิ่มระดับชั้นใหม่ลงดาต้าเบส
-                    $stmt_insert = $pdo->prepare("INSERT INTO classrooms (class_name) VALUES (?)");
-                    $stmt_insert->execute([$class_name]);
+                    $stmt_insert = $pdo->prepare("INSERT INTO classrooms (class_name, school_code) VALUES (?, ?)");
+                    $stmt_insert->execute([$class_name, $school_code]);
                     $success_msg = 'เพิ่มระดับชั้นเรียนมาตรฐานลงระบบสำเร็จเรียบร้อยแล้ว';
                 }
                 header("Location: classrooms.php?success_msg=" . urlencode($success_msg));
@@ -87,7 +90,10 @@ if (isset($_GET['success_msg'])) {
 }
 
 // โหลดระดับชั้นเรียนทั้งหมด
-$all_classrooms = $pdo->query("SELECT * FROM classrooms ORDER BY class_name ASC")->fetchAll();
+$school_code = $_SESSION['school_code'] ?? '31054002';
+$stmt_all_cls = $pdo->prepare("SELECT * FROM classrooms WHERE school_code = ? ORDER BY class_name ASC");
+$stmt_all_cls->execute([$school_code]);
+$all_classrooms = $stmt_all_cls->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="th">

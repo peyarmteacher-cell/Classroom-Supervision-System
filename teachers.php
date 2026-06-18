@@ -24,8 +24,8 @@ $username_field = '';
 
 // กรณีคลิกกดโหลดข้อมูลคุณครูมาเตรียมแก้ไข
 if ($edit_id) {
-    $stmt = $pdo->prepare("SELECT * FROM teachers WHERE teacher_id = ?");
-    $stmt->execute([$edit_id]);
+    $stmt = $pdo->prepare("SELECT * FROM teachers WHERE teacher_id = ? AND school_code = ?");
+    $stmt->execute([$edit_id, $_SESSION['school_code'] ?? '31054002']);
     $t_data = $stmt->fetch();
     if ($t_data) {
         $teacher_name = $t_data['teacher_name'];
@@ -38,19 +38,20 @@ if ($edit_id) {
 
 // ล้างข้อมูลจำลองสำหรับการทดสอบระบบเพื่อเตรียมพร้อมใช้งานจริง
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_clear_mock_data'])) {
-    // 1. ลบรายงานนิเทศทั้งหมด (ตาราง supervisions)
-    $pdo->exec("DELETE FROM `supervisions` WHERE 1");
+    $school_code = $_SESSION['school_code'] ?? '31054002';
+    // 1. ลบรายงานนิเทศของโรงเรียนตนเอง
+    $pdo->prepare("DELETE FROM `supervisions` WHERE school_code = ?")->execute([$school_code]);
     
-    // 2. ลบคุณครูจำลองและบัญชีของครูตาม ID
-    $pdo->exec("DELETE FROM `users` WHERE `username` IN ('teacher_t1', 'teacher_t2', 'teacher_t3')");
-    $pdo->exec("DELETE FROM `teachers` WHERE `teacher_id` IN ('T-001', 'T-002', 'T-003')");
+    // 2. ลบคุณครูจำลองและบัญชีเฉพาะโรงเรียนตนเอง
+    $pdo->prepare("DELETE FROM `users` WHERE school_code = ? AND role = 'teacher'")->execute([$school_code]);
+    $pdo->prepare("DELETE FROM `teachers` WHERE school_code = ?")->execute([$school_code]);
     
     // 3. ปักธงระบบว่าได้ผ่านการล้าง/ลงข้อมูลแล้วเพื่อไม่ให้คุณครูจำลองงอกกลับมาใหม่อีก
-    $pdo->exec("INSERT INTO `school_settings` (`setting_key`, `setting_value`) 
-                VALUES ('system_init_seeded', '1') 
-                ON DUPLICATE KEY UPDATE `setting_value` = '1'");
+    $pdo->prepare("INSERT INTO `school_settings` (school_code, `setting_key`, `setting_value`) 
+                VALUES (?, 'system_init_seeded', '1') 
+                ON DUPLICATE KEY UPDATE `setting_value` = '1'")->execute([$school_code, 'system_init_seeded']);
 
-    $success_msg = 'ระบบได้ทำการล้างข้อมูลจำลอง ทั้งประวัตินิเทศ และคุณครูทดสอบ (T-001 ถึง T-003) ออกจากสารบบเรียบร้อยแล้ว พร้อมต้อนรับข้อมูลจริงของโรงเรียนทันทีครับ';
+    $success_msg = 'ระบบได้ทำการล้างข้อมูลจำลอง ทั้งประวัตินิเทศ และคุณครูทดสอบ ออกจากสารบบของสถาบันศึกษาเรียบร้อยแล้ว พร้อมต้อนรับข้อมูลจริงของโรงเรียนทันทีครับ';
     header("Location: teachers.php?success_msg=" . urlencode($success_msg));
     exit;
 }
@@ -58,18 +59,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_clear_mock_dat
 // ลบคุณครูออกจากระดับสารบบถาวร
 if (isset($_GET['delete_id'])) {
     $del_id = $_GET['delete_id'];
+    $school_code = $_SESSION['school_code'] ?? '31054002';
     
     // ดึงชื่อคุณครูมาดูล๊อกอินประกอบเพื่อจะเคลียร์ตารางผู้ใช้ออกด้วย
-    $get_u = $pdo->prepare("SELECT username FROM teachers WHERE teacher_id = ?");
-    $get_u->execute([$del_id]);
+    $get_u = $pdo->prepare("SELECT username FROM teachers WHERE teacher_id = ? AND school_code = ?");
+    $get_u->execute([$del_id, $school_code]);
     $u_name = $get_u->fetchColumn();
 
     if ($u_name) {
-        $pdo->prepare("DELETE FROM users WHERE username = ?")->execute([$u_name]);
+        $pdo->prepare("DELETE FROM users WHERE username = ? AND school_code = ?")->execute([$u_name, $school_code]);
     }
 
-    $stmt = $pdo->prepare("DELETE FROM teachers WHERE teacher_id = ?");
-    $stmt->execute([$del_id]);
+    $stmt = $pdo->prepare("DELETE FROM teachers WHERE teacher_id = ? AND school_code = ?");
+    $stmt->execute([$del_id, $school_code]);
 
     $success_msg = 'ลบข้อมูลคุณครูและพัสดุบัญชีผู้ใช้งานออกจากสารบบเสร็จชอบธรรมแล้ว';
     header("Location: teachers.php?success_msg=" . urlencode($success_msg));
@@ -86,86 +88,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
     $password_field = $_POST['password_field'] ?? '';
 
     if (!empty($teacher_name)) {
+        $school_code = $_SESSION['school_code'] ?? '31054002';
         if ($edit_id) {
             // ค้นหา username เก่าเพื่ออัปเดตอย่างสมบูรณ์เชื่อมถึง
-            $stmt_old_u = $pdo->prepare("SELECT username, photo_path FROM teachers WHERE teacher_id = ?");
-            $stmt_old_u->execute([$edit_id]);
+            $stmt_old_u = $pdo->prepare("SELECT username, photo_path FROM teachers WHERE teacher_id = ? AND school_code = ?");
+            $stmt_old_u->execute([$edit_id, $school_code]);
             $old_data = $stmt_old_u->fetch();
-            $old_u = $old_data['username'];
-            
-            // คำนวณรักษารูปเดิม
-            $photo_uploaded_path = $old_data['photo_path'] ?? null;
+            if ($old_data) {
+                $old_u = $old_data['username'];
+                
+                // คำนวณรักษารูปเดิม
+                $photo_uploaded_path = $old_data['photo_path'] ?? null;
 
-            if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
-                $file_tmp = $_FILES['teacher_photo']['tmp_name'];
-                $file_name = $_FILES['teacher_photo']['name'];
-                $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-                $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
-                if (in_array($file_ext, $allowed_exts)) {
-                    $new_file_name = 'teacher_' . $edit_id . '_' . time() . '.' . $file_ext;
-                    $dest_path = 'uploads/' . $new_file_name;
-                    if (move_uploaded_file($file_tmp, $dest_path)) {
-                        $photo_uploaded_path = $dest_path;
+                if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
+                    $file_tmp = $_FILES['teacher_photo']['tmp_name'];
+                    $file_name = $_FILES['teacher_photo']['name'];
+                    $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                    $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+                    if (in_array($file_ext, $allowed_exts)) {
+                        $new_file_name = 'teacher_' . $edit_id . '_' . time() . '.' . $file_ext;
+                        $dest_path = 'uploads/' . $new_file_name;
+                        if (move_uploaded_file($file_tmp, $dest_path)) {
+                            // อัพโหลดเข้ากูเกิลไดรฟ์ของระบบโรงเรียนถ้ามีตั้งค่าเชื่อมต่อ
+                            $gdrive_url = upload_image_to_gdrive_if_configured($dest_path, $new_file_name, $school_code, $pdo);
+                            $photo_uploaded_path = $gdrive_url ?: $dest_path;
+                        }
                     }
                 }
-            }
 
-            if (empty($username_field)) {
-                $username_field = $old_u;
-            }
+                if (empty($username_field)) {
+                    $username_field = $old_u;
+                }
 
-            // คำนวณความปลอดภัยตรวจสอบตัวอักษร
-            if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $username_field)) {
-                $error_msg = 'ชื่อล็อกอินผู้ใช้ต้องประกอบด้วยภาษาอังกฤษหรือตัวเลขห้ามมีเว้นวรรค';
-            } else {
-                // ตรวจชื่อผู้ใช้งานชนซ้ำในตารางผู้ใช้หลักไหม
-                $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND username != ?");
-                $stmt_check->execute([$username_field, $old_u]);
-                $exists = $stmt_check->fetchColumn();
-
-                if ($exists > 0) {
-                    $error_msg = "ชื่อล็อกอิน '{$username_field}' มีหัวหน้าหมวดหรือคนอื่นใช้ไปแล้วในระบบ กรุณาใช้ชื่ออื่น";
+                // คำนวณความปลอดภัยตรวจสอบตัวอักษร
+                if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $username_field)) {
+                    $error_msg = 'ชื่อล็อกอินผู้ใช้ต้องประกอบด้วยภาษาอังกฤษหรือตัวเลขห้ามมีเว้นวรรค';
                 } else {
-                    $pdo->beginTransaction();
-                    try {
-                        // อัพเดตตารางคุณครูผู้สอน
-                        $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ?, photo_path = ? WHERE teacher_id = ?");
-                        $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $edit_id]);
-                        
-                        // อัปเดตตาราง users
-                        if (!empty($password_field)) {
-                            $hashed_pass = password_hash($password_field, PASSWORD_DEFAULT);
-                            $stmt_u_up = $pdo->prepare("UPDATE users SET username = ?, password = ?, fullname = ? WHERE username = ?");
-                            $stmt_u_up->execute([$username_field, $hashed_pass, $teacher_name, $old_u]);
-                        } else {
-                            $stmt_u_up = $pdo->prepare("UPDATE users SET username = ?, fullname = ? WHERE username = ?");
-                            $stmt_u_up->execute([$username_field, $teacher_name, $old_u]);
+                    // ตรวจชื่อผู้ใช้งานชนซ้ำในตารางผู้ใช้หลักไหม
+                    $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND username != ? AND school_code = ?");
+                    $stmt_check->execute([$username_field, $old_u, $school_code]);
+                    $exists = $stmt_check->fetchColumn();
+
+                    if ($exists > 0) {
+                        $error_msg = "ชื่อล็อกอิน '{$username_field}' มีหัวหน้าหมวดหรือคนอื่นใช้ไปแล้วในระบบ กรุณาใช้ชื่ออื่น";
+                    } else {
+                        $pdo->beginTransaction();
+                        try {
+                            // อัพเดตตารางคุณครูผู้สอน
+                            $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ?, photo_path = ? WHERE teacher_id = ? AND school_code = ?");
+                            $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $edit_id, $school_code]);
+                            
+                            // อัปเดตตาราง users
+                            if (!empty($password_field)) {
+                                $hashed_pass = password_hash($password_field, PASSWORD_DEFAULT);
+                                $stmt_u_up = $pdo->prepare("UPDATE users SET username = ?, password = ?, fullname = ? WHERE username = ? AND school_code = ?");
+                                $stmt_u_up->execute([$username_field, $hashed_pass, $teacher_name, $old_u, $school_code]);
+                            } else {
+                                $stmt_u_up = $pdo->prepare("UPDATE users SET username = ?, fullname = ? WHERE username = ? AND school_code = ?");
+                                $stmt_u_up->execute([$username_field, $teacher_name, $old_u, $school_code]);
+                            }
+
+                            $pdo->commit();
+
+                            $success_msg = "แก้ไขประวัติและรหัสผ่านเข้าใช้งานคุณครู {$teacher_name} เรียบร้อยแล้ว";
+                            header("Location: teachers.php?success_msg=" . urlencode($success_msg));
+                            exit;
+                        } catch (Exception $e) {
+                            $pdo->rollBack();
+                            $error_msg = "เกิดความผิดพลาด: " . $e->getMessage();
                         }
-
-                        $pdo->commit();
-
-                        $success_msg = "แก้ไขประวัติและรหัสผ่านเข้าใช้งานคุณครู {$teacher_name} เรียบร้อยแล้ว";
-                        header("Location: teachers.php?success_msg=" . urlencode($success_msg));
-                        exit;
-                    } catch (Exception $e) {
-                        $pdo->rollBack();
-                        $error_msg = "เกิดความผิดพลาด: " . $e->getMessage();
                     }
                 }
             }
         } else {
             // การจดรับเพิ่มใหม่
-            // สร้างไอดีที่มีสัญลักษณ์กระทรวงศึกษา เช่น T-00X
+            // สร้างไอดีที่มีสัญลักษณ์กระทรวงศึกษา เช่น T-31054002-001
             $curr_max_id_num = 0;
-            $all_tc = $pdo->query("SELECT teacher_id FROM teachers")->fetchAll(PDO::FETCH_COLUMN);
+            $stmt_t_all = $pdo->prepare("SELECT teacher_id FROM teachers WHERE school_code = ?");
+            $stmt_t_all->execute([$school_code]);
+            $all_tc = $stmt_t_all->fetchAll(PDO::FETCH_COLUMN);
             foreach ($all_tc as $tc_id) {
-                $num = (int)str_replace('T-', '', $tc_id);
+                $clean_id = str_replace('T-' . $school_code . '-', '', $tc_id);
+                $clean_id = str_replace('T-', '', $clean_id);
+                $num = (int)$clean_id;
                 if ($num > $curr_max_id_num) {
                     $curr_max_id_num = $num;
                 }
             }
             $next_num = $curr_max_id_num + 1;
-            $new_teacher_id = 'T-' . str_pad($next_num, 3, '0', STR_PAD_LEFT);
+            $new_teacher_id = 'T-' . $school_code . '-' . str_pad($next_num, 3, '0', STR_PAD_LEFT);
             
             $photo_uploaded_path = null;
             if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
@@ -177,7 +188,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                     $new_file_name = 'teacher_' . $new_teacher_id . '_' . time() . '.' . $file_ext;
                     $dest_path = 'uploads/' . $new_file_name;
                     if (move_uploaded_file($file_tmp, $dest_path)) {
-                        $photo_uploaded_path = $dest_path;
+                        // อัพโหลดเข้ากูเกิลไดรฟ์ของระบบโรงเรียนถ้ามีตั้งค่าเชื่อมต่อ
+                        $gdrive_url = upload_image_to_gdrive_if_configured($dest_path, $new_file_name, $school_code, $pdo);
+                        $photo_uploaded_path = $gdrive_url ?: $dest_path;
                     }
                 }
             }
@@ -192,24 +205,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
             if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $username_field)) {
                 $error_msg = 'ระบุชื่อล็อกอินเฉพาะตัวเลข ภาษาอังกฤษ และสัญลักษณ์สากลเท่านั้น';
             } else {
-                // ตรวจซ้ำก่อนลงทะเบียน
-                $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
-                $stmt_check->execute([$username_field]);
+                // ตรวจซ้ำก่อนลงทะเบียนเฉพาะโรงเรียนเพื่อรองรับ username เดียวกันคนละครู
+                $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND school_code = ?");
+                $stmt_check->execute([$username_field, $school_code]);
                 $exists = $stmt_check->fetchColumn();
 
                 if ($exists > 0) {
-                    $error_msg = "ชื่อล็อกอินผู้ใช้งาน '{$username_field}' ถูกใช้งานแล้วโดยเจ้าหน้าที่ท่านอื่นในระบบ";
+                    $error_msg = "ชื่อล็อกอินผู้ใช้งาน '{$username_field}' ถูกใช้งานแล้วโดยเจ้าหน้าที่ท่านอื่นในระบบของโรงเรียนท่าน";
                 } else {
                     $pdo->beginTransaction();
                     try {
                         // บันทึกลงตารางครูผู้สอน
-                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path]);
+                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username, photo_path, school_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $school_code]);
 
-                        // สร้างคู่ไอดีบัญชีล็อกอินในระบบโดยใช้อัลกอรึทึมความปลอดภัยมาตรฐานสากล
+                        // สร้างคู่ไอดีบัญชีล็อกอินในระบบ
                         $hashed_pass = password_hash($input_password, PASSWORD_DEFAULT);
-                        $stmt_user = $pdo->prepare("INSERT INTO users (username, password, fullname, role) VALUES (?, ?, ?, 'teacher')");
-                        $stmt_user->execute([$username_field, $hashed_pass, $teacher_name]);
+                        $stmt_user = $pdo->prepare("INSERT INTO users (username, password, fullname, role, school_code) VALUES (?, ?, ?, 'teacher', ?)");
+                        $stmt_user->execute([$username_field, $hashed_pass, $teacher_name, $school_code]);
 
                         $pdo->commit();
 
@@ -234,7 +247,9 @@ if (isset($_GET['success_msg'])) {
 }
 
 // โหลดลิสต์คุณครูทั้งหมดสังกัดปัจจุบัน
-$all_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
+$stmt_get_all = $pdo->prepare("SELECT * FROM teachers WHERE school_code = ? ORDER BY teacher_id ASC");
+$stmt_get_all->execute([$_SESSION['school_code'] ?? '31054002']);
+$all_teachers = $stmt_get_all->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="th">
