@@ -100,6 +100,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_gdrive'])
     }
 }
 
+// การตั้งค่า/แก้ไขข้อมูลพื้นฐานโรงเรียน (รวมถึงการปรับปรุงรหัส SMISS เครือข่ายแบบ Cascade เพื่อไม่ให้เกิดข้อมูลค้าง/สูญหาย)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_edit_school'])) {
+    $old_school_code = trim($_POST['old_school_code'] ?? '');
+    $new_school_code = trim($_POST['new_school_code'] ?? '');
+    $school_name = trim($_POST['school_name'] ?? '');
+    $affiliation = trim($_POST['affiliation'] ?? '');
+    
+    if (empty($old_school_code) || empty($new_school_code) || empty($school_name) || empty($affiliation)) {
+        $error_msg = "กรุณาระบุกรอกข้อมูลโรงเรียนให้ครบถ้วนทุกช่อง";
+    } else if (strlen($new_school_code) !== 8 || !is_numeric($new_school_code)) {
+        $error_msg = "รหัส SMISS โรงเรียนต้องเป็นตัวเลขความยาว 8 หลักเท่านั้น";
+    } else {
+        // ตรวจสอบความซ้ำซ้อนของรหัสใหม่ (หากมีการเปลี่ยนแปลงรหัสโรงเรียน)
+        $stmt_chk = $pdo->prepare("SELECT COUNT(*) FROM schools WHERE school_code = ? AND school_code != ?");
+        $stmt_chk->execute([$new_school_code, $old_school_code]);
+        if ($stmt_chk->fetchColumn() > 0) {
+            $error_msg = "รหัส SMISS ใหม่ '{$new_school_code}' ได้ถูกจดทะเบียนไว้ในระบบแล้ว กรุณาเลือกใช้รหัสอื่น";
+        } else {
+            $pdo->beginTransaction();
+            try {
+                if ($old_school_code !== $new_school_code) {
+                    // ดึงรายละเอียดเก่าเพื่อรักษาสถานะดั้งเดิมไว้
+                    $stmt_cur = $pdo->prepare("SELECT * FROM schools WHERE school_code = ?");
+                    $stmt_cur->execute([$old_school_code]);
+                    $cur_sch = $stmt_cur->fetch();
+                    
+                    if ($cur_sch) {
+                        // ปูพรมแทรกแถวรหัสโรงเรียนใหม่เข้าไป
+                        $stmt_ins = $pdo->prepare("INSERT INTO schools (school_code, school_name, affiliation, status, gdrive_app_url, gdrive_folder_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $stmt_ins->execute([
+                            $new_school_code,
+                            $school_name,
+                            $affiliation,
+                            $cur_sch['status'],
+                            $cur_sch['gdrive_app_url'],
+                            $cur_sch['gdrive_folder_id'],
+                            $cur_sch['created_at']
+                        ]);
+
+                        // ทยอยอัพเดทตารางบริวารทั้งหมดแบบประสานกุญแจหลัก
+                        $tables = ['school_settings', 'teachers', 'academic_years', 'supervisions', 'classrooms', 'users'];
+                        foreach ($tables as $tbl) {
+                            $stmt_up = $pdo->prepare("UPDATE `{$tbl}` SET school_code = ? WHERE school_code = ?");
+                            $stmt_up->execute([$new_school_code, $old_school_code]);
+                        }
+                        
+                        // ลบแถวเก่าออกอย่างเป็นระเบียบ
+                        $stmt_del = $pdo->prepare("DELETE FROM schools WHERE school_code = ?");
+                        $stmt_del->execute([$old_school_code]);
+                    }
+                } else {
+                    // หากไม่มีการเปลี่ยนรหัสโรงเรียน ให้อัปเดตรายละเอียดทั่วไปเท่านั้น
+                    $stmt_up = $pdo->prepare("UPDATE schools SET school_name = ?, affiliation = ? WHERE school_code = ?");
+                    $stmt_up->execute([$school_name, $affiliation, $old_school_code]);
+                }
+                
+                $pdo->commit();
+                $success_msg = "ปรับปรุงข้อมูลโรงเรียนและรหัส SMISS ย้ายเครือข่ายเป็น {$new_school_code} สำเร็จเรียบร้อย ลิงก์คุณครูและประเมินทั้งหมดได้รับการอัปเดตอย่างสมบูรณ์";
+                header("Location: super_admin.php?success_msg=" . urlencode($success_msg));
+                exit;
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $error_msg = "เกิดข้อผิดพลาดในการอัปเดตข้อมูลแบบกลุ่ม: " . $e->getMessage();
+            }
+        }
+    }
+}
+
 // โหลดรายชื่อโรงเรียนทั้งหมดในฐานระบบ
 $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fetchAll();
 ?>
@@ -223,18 +291,22 @@ $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fe
                                         </td>
                                         <!-- Operations actions -->
                                         <td class="p-3 text-center">
-                                            <div class="flex flex-col gap-1 items-center justify-center">
-                                                <div class="flex gap-1">
+                                            <div class="flex flex-col gap-1.5 items-center justify-center">
+                                                <div class="flex gap-1 flex-wrap justify-center">
                                                     <?php if ($sch['status'] !== 'approved'): ?>
-                                                        <a href="super_admin.php?approve_code=<?php echo urlencode($sch['school_code']); ?>" class="p-1 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-250 rounded font-bold text-[10px]" title="อนุมัติการใช้งาน">
+                                                        <a href="super_admin.php?approve_code=<?php echo urlencode($sch['school_code']); ?>" class="p-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-250 rounded font-bold text-[10px]" title="อนุมัติการใช้งาน">
                                                             ✅ อนุมัติ
                                                         </a>
                                                     <?php else: ?>
-                                                        <a href="super_admin.php?deactivate_code=<?php echo urlencode($sch['school_code']); ?>" onclick="return confirm('ยืนยันประสงค์ต้องการระงับสิทธิ์การใช้งานของโรงเรียนนี้ชั่วคราว? ผู้ใช้งานทั้งหมดสังกัดโรงเรียนจะไม่สามารถเข้าสู่ระบบประเมินได้')" class="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-250 rounded font-bold text-[10px]" title="ระงับความสิทธิ์">
+                                                        <a href="super_admin.php?deactivate_code=<?php echo urlencode($sch['school_code']); ?>" onclick="return confirm('ยืนยันประสงค์ต้องการระงับสิทธิ์การใช้งานของโรงเรียนนี้ชั่วคราว? ผู้ใช้งานทั้งหมดสังกัดโรงเรียนจะไม่สามารถเข้าสู่ระบบประเมินได้')" class="p-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-250 rounded font-bold text-[10px]" title="ระงับความสิทธิ์">
                                                             🚫 ระงับใช้งาน
                                                         </a>
                                                     <?php endif; ?>
                                                     
+                                                    <button type="button" onclick="toggleEditSchoolForm('<?php echo htmlspecialchars($sch['school_code']); ?>', '<?php echo htmlspecialchars($sch['school_name']); ?>', '<?php echo htmlspecialchars($sch['affiliation']); ?>')" class="p-1 px-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-250 rounded font-bold text-[10px]" title="แก้ไขข้อมูลโรงเรียน">
+                                                        ✏️ แก้ไขข้อมูล
+                                                    </button>
+
                                                     <!-- Javascript toggle formula to display Drive input modal/panel below -->
                                                     <button type="button" onclick="toggleDriveForm('<?php echo htmlspecialchars($sch['school_code']); ?>', '<?php echo htmlspecialchars($sch['gdrive_app_url']); ?>', '<?php echo htmlspecialchars($sch['gdrive_folder_id']); ?>')" class="p-1 px-2 bg-slate-50 hover:bg-indigo-50 text-indigo-700 border border-slate-200 rounded font-bold text-[10px]" title="ตั้งค่าคลังภาพ Google Drive">
                                                         ⚙️ ตั้งค่าคลังภาพ
@@ -270,6 +342,45 @@ $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fe
                             </button>
                             <button type="button" onclick="document.getElementById('drive_config_card').classList.add('hidden')" class="py-2 px-3 bg-slate-200 text-slate-600 font-bold rounded-lg hover:bg-slate-300">
                                 ปิด
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Hidden / Dynamic School Edit Card -->
+                <div id="school_edit_card" class="hidden bg-amber-50/40 border border-amber-200 rounded-2xl p-5 mt-4 space-y-3 shadow-inner">
+                    <h3 class="font-extrabold text-[#0A3370] text-xs flex items-center gap-1.5">
+                        <span>✏️ แก้ไขข้อมูลโรงเรียน / รหัส SMISS เครือข่าย</span>
+                        <span id="edit_target_school" class="font-mono text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded text-[10px] ml-1 font-bold"></span>
+                    </h3>
+                    <p class="text-[10px] text-slate-500 leading-normal">
+                        <strong>🛡️ คำเตือนกรณีแก้ไขรหัสโรงเรียน (SMISS Code):</strong> 
+                        เมื่อเปลี่ยนรหัส SMISS ระบบจะทำการอัปเดตแกนความสัมพันธ์ (<code class="bg-[#e2e8f0] px-1 rounded font-mono font-bold text-slate-700">school_code</code>) 
+                        ของบัญชีผู้ใช้ครูผู้สอน, ปีการศึกษา, ระเบียบสถิติสิทธิ์ทั้งหมด เข้าสู่เลขรหัสใหม่ให้อัตโนมัติ ป้องกันข้อมูลสูญหายโดยสิ้นเชิง
+                    </p>
+                    <form method="POST" class="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
+                        <input type="hidden" name="action_edit_school" value="1">
+                        <input type="hidden" name="old_school_code" id="edit_input_old_school_code" value="">
+                        
+                        <div class="md:col-span-3 space-y-1">
+                            <label class="font-bold text-slate-600 block">รหัส SMISS 8 หลักใหม่ *</label>
+                            <input type="text" name="new_school_code" id="edit_input_new_school_code" maxlength="8" required class="w-full p-2 bg-white border border-slate-205 rounded-lg outline-none font-bold text-amber-800 font-mono tracking-wider focus:ring-2 focus:ring-[#0A3370]">
+                        </div>
+                        <div class="md:col-span-5 space-y-1">
+                            <label class="font-bold text-slate-600 block">ชื่อชื่อโรงเรียนสถานศึกษาจริง *</label>
+                            <input type="text" name="school_name" id="edit_input_school_name" required class="w-full p-2 bg-white border border-slate-205 rounded-lg outline-none font-semibold text-slate-800 focus:ring-2 focus:ring-[#0A3370]">
+                        </div>
+                        <div class="md:col-span-4 space-y-1">
+                            <label class="font-bold text-slate-600 block">ชื่อส่วนงานสังกัดราชการ *</label>
+                            <input type="text" name="affiliation" id="edit_input_affiliation" required class="w-full p-2 bg-white border border-slate-205 rounded-lg outline-none text-slate-700 focus:ring-2 focus:ring-[#0A3370]">
+                        </div>
+                        
+                        <div class="md:col-span-12 flex justify-end gap-1.5 pt-1">
+                            <button type="submit" class="py-2 px-5 bg-gradient-to-r from-[#0A3370] to-indigo-850 text-white font-bold rounded-lg transition hover:opacity-95 shadow cursor-pointer border-none text-center">
+                                💾 บันทึกปรับปรุงข้อมูล
+                            </button>
+                            <button type="button" onclick="document.getElementById('school_edit_card').classList.add('hidden')" class="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold rounded-lg transition border-none cursor-pointer">
+                                ยกเลิกการแก้ไข
                             </button>
                         </div>
                     </form>
@@ -353,15 +464,39 @@ function doPost(e) {
     <script>
         function toggleDriveForm(schoolCode, appUrl, folderId) {
             const card = document.getElementById('drive_config_card');
+            const editCard = document.getElementById('school_edit_card');
             const targetSchoolSpan = document.getElementById('drive_target_school');
             const inputSchoolCode = document.getElementById('drive_input_school_code');
             const inputAppUrl = document.getElementById('drive_input_app_url');
             const inputFolderId = document.getElementById('drive_input_folder_id');
             
+            if (editCard) editCard.classList.add('hidden');
+            
             targetSchoolSpan.innerText = 'รหัส SMISS: ' + schoolCode;
             inputSchoolCode.value = schoolCode;
             inputAppUrl.value = appUrl;
             inputFolderId.value = folderId;
+            
+            card.classList.remove('hidden');
+            card.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function toggleEditSchoolForm(schoolCode, schoolName, affiliation) {
+            const card = document.getElementById('school_edit_card');
+            const driveCard = document.getElementById('drive_config_card');
+            const targetSchoolSpan = document.getElementById('edit_target_school');
+            const inputOldSchoolCode = document.getElementById('edit_input_old_school_code');
+            const inputNewSchoolCode = document.getElementById('edit_input_new_school_code');
+            const inputSchoolName = document.getElementById('edit_input_school_name');
+            const inputAffiliation = document.getElementById('edit_input_affiliation');
+            
+            if (driveCard) driveCard.classList.add('hidden');
+            
+            targetSchoolSpan.innerText = 'รหัสเดิม: ' + schoolCode;
+            inputOldSchoolCode.value = schoolCode;
+            inputNewSchoolCode.value = schoolCode;
+            inputSchoolName.value = schoolName;
+            inputAffiliation.value = affiliation;
             
             card.classList.remove('hidden');
             card.scrollIntoView({ behavior: 'smooth' });
