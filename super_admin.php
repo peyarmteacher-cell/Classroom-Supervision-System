@@ -11,8 +11,70 @@ if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'super_admin') {
     exit;
 }
 
-$success_msg = '';
-$error_msg = '';
+$success_msg = isset($_GET['success_msg']) ? $_GET['success_msg'] : '';
+$error_msg = isset($_GET['error_msg']) ? $_GET['error_msg'] : '';
+
+// การจัดการแก้ไข Username และ Password ของ Super Admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_super_admin'])) {
+    $current_username = $_SESSION['username'];
+    $new_username = trim($_POST['super_username'] ?? '');
+    $new_password = $_POST['super_password'] ?? '';
+    $confirm_password = $_POST['super_confirm_password'] ?? '';
+    
+    if (empty($new_username)) {
+        $error_msg = "กรุณากรอก Username";
+    } else {
+        $pdo->beginTransaction();
+        try {
+            // เช็คว่า Username ซ้ำกับคนอื่นไหม (ยกเว้นตัวเอง)
+            $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND username != ?");
+            $stmt_check->execute([$new_username, $current_username]);
+            if ($stmt_check->fetchColumn() > 0) {
+                $error_msg = "Username นี้ถูกใช้งานแล้ว กรุณาเลือกใช้ชื่ออื่น";
+            } else {
+                if (!empty($new_password)) {
+                    if (strlen($new_password) < 6) {
+                        $error_msg = "รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร";
+                    } elseif ($new_password !== $confirm_password) {
+                        $error_msg = "รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกัน";
+                    } else {
+                        // เปลี่ยนทั้ง Username และ Password
+                        $hashed_pwd = password_hash($new_password, PASSWORD_DEFAULT);
+                        
+                        if ($current_username !== $new_username) {
+                            $stmt_up = $pdo->prepare("UPDATE users SET username = ?, password = ? WHERE username = ? AND role = 'super_admin'");
+                            $stmt_up->execute([$new_username, $hashed_pwd, $current_username]);
+                        } else {
+                            $stmt_up = $pdo->prepare("UPDATE users SET password = ? WHERE username = ? AND role = 'super_admin'");
+                            $stmt_up->execute([$hashed_pwd, $current_username]);
+                        }
+                        
+                        $_SESSION['username'] = $new_username;
+                        $success_msg = "แก้ไขบัญชี Super Admin เรียบร้อยแล้ว (เปลี่ยนรหัสผ่านสำเร็จ)";
+                    }
+                } else {
+                    // เปลี่ยนเฉพาะ Username
+                    if ($current_username !== $new_username) {
+                        $stmt_up = $pdo->prepare("UPDATE users SET username = ? WHERE username = ? AND role = 'super_admin'");
+                        $stmt_up->execute([$new_username, $current_username]);
+                        $_SESSION['username'] = $new_username;
+                        $success_msg = "แก้ไข Username ของ Super Admin เรียบร้อยแล้ว (รหัสผ่านคงเดิม)";
+                    } else {
+                        $success_msg = "ไม่มีข้อมูลความเปลี่ยนแปลงทางบัญชีใดๆ";
+                    }
+                }
+            }
+            $pdo->commit();
+            if (empty($error_msg)) {
+                header("Location: super_admin.php?success_msg=" . urlencode($success_msg));
+                exit;
+            }
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error_msg = "เกิดข้อผิดพลาดในการบันทึกข้อมูล: " . $e->getMessage();
+        }
+    }
+}
 
 // การอัปเดตสถานะโรงเรียนและการจัดลงทะเบียนตั้งต้น (Bootstrap school)
 if (isset($_GET['approve_code'])) {
@@ -50,7 +112,7 @@ if (isset($_GET['approve_code'])) {
                     'มัธยมศึกษาปีที่ 1', 'มัธยมศึกษาปีที่ 2', 'มัธยมศึกษาปีที่ 3',
                     'มัธยมศึกษาปีที่ 4', 'มัธยมศึกษาปีที่ 5', 'มัธยมศึกษาปีที่ 6'
                 ];
-                $stmt_class = $pdo->prepare("INSERT INTO classrooms (class_name, school_code) VALUES (?, ?)");
+                $stmt_class = $pdo->prepare("INSERT IGNORE INTO classrooms (class_name, school_code) VALUES (?, ?)");
                 foreach ($default_classes as $cls) {
                     $stmt_class->execute([$cls, $approve_code]);
                 }
@@ -387,8 +449,44 @@ $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fe
                 </div>
             </div>
 
-            <!-- Section 2: Instructions and Google Apps Script Code block (lg:col-span-4) -->
-            <div class="lg:col-span-4 bg-[#0f172a] text-slate-200 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+            <!-- Column 2 (lg:col-span-4) -->
+            <div class="lg:col-span-4 space-y-6">
+
+                <!-- Section: Edit Super Admin Account -->
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                    <div class="border-b pb-3">
+                        <h2 class="font-extrabold text-[#0A3370] text-sm flex items-center gap-1.5">
+                            <span>🔑 ตั้งค่าบัญชี Super Admin</span>
+                        </h2>
+                        <p class="text-[10px] text-slate-400 mt-0.5">แก้ไข Username และรหัสผ่านเข้าศูนย์ควบคุมระบบสูงสุด</p>
+                    </div>
+
+                    <form method="POST" class="space-y-4 text-xs">
+                        <input type="hidden" name="action_update_super_admin" value="1">
+                        
+                        <div class="space-y-1">
+                            <label class="font-bold text-slate-500 block">Username สูงสุด *</label>
+                            <input type="text" name="super_username" value="<?php echo htmlspecialchars($_SESSION['username']); ?>" required class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-[#0A3370] font-mono tracking-wider focus:ring-1 focus:ring-[#0A3370] focus:bg-white transition-all">
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="font-bold text-slate-500 block">รหัสผ่านใหม่ <span class="text-slate-400 font-normal">(เว้นว่างหากไม่ต้องการเปลี่ยน)</span></label>
+                            <input type="password" name="super_password" placeholder="ป้อนรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono focus:ring-1 focus:ring-[#0A3370] focus:bg-white transition-all">
+                        </div>
+
+                        <div class="space-y-1">
+                            <label class="font-bold text-slate-500 block">ยืนยันรหัสผ่านใหม่อีกครั้ง</label>
+                            <input type="password" name="super_confirm_password" placeholder="ยืนยันรหัสผ่านใหม่อีกครั้ง" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono focus:ring-1 focus:ring-[#0A3370] focus:bg-white transition-all">
+                        </div>
+
+                        <button type="submit" class="w-full py-2.5 bg-[#0A3370] hover:bg-[#0f172a] text-white font-bold rounded-xl transition-all shadow cursor-pointer border-none text-center">
+                            💾 บันทึกการเปลี่ยนแปลงบัญชี
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Section 2: Instructions and Google Apps Script Code block -->
+                <div class="bg-[#0f172a] text-slate-200 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
                 <div>
                     <h2 class="font-extrabold text-amber-400 text-sm flex items-center gap-1">🛠️ คู่มือชุดเชื่อม Google Drive (GAS Engine)</h2>
                     <p class="text-[9.5px] text-slate-400 mt-1 leading-relaxed">คัดลอกรหัสซอร์สโค้ดด้านล่าง เพื่อนำไปใช้สร้างชุดบริการ Google Apps Script ไปยังสัญญูของบุคคลผู้ใช้อีเมลโรงเรียนนั้นๆ เพื่อให้อัปโหลดจัดเก็บรูปคุณครูและรูปประเมินนิเทศลง Google Drive ของโรงเรียนนั้นโดยอัตโนมัติ</p>
@@ -448,7 +546,9 @@ function doPost(e) {
                 <div class="text-[9.5px] bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-amber-500 leading-relaxed font-bold">
                     💡 โน้ตความปลอดภัย: ระบบภาพคุณครูและภาพนิเทศบรรยากาศจะถูกส่งขึ้นไดรฟ์ของเจ้าของโรงเรียนนั้นๆ ส่งผลให้ลดภาระที่จัดเก็บ และทำให้ภาพนั้นอยู่ในการรับผิดชอบของบุคลากรโรงเรียนที่ดูแลสิทธิ์โดยตรง
                 </div>
-            </div>
+            </div> <!-- End of Section 2 -->
+
+            </div> <!-- End of Column 2 wrapper -->
 
         </div>
 

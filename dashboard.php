@@ -53,6 +53,13 @@ $stmt_y_cnt = $pdo->prepare("SELECT COUNT(*) FROM academic_years WHERE school_co
 $stmt_y_cnt->execute([$school_code]);
 $total_years = $stmt_y_cnt->fetchColumn();
 
+$stmt_active_y = $pdo->prepare("SELECT year FROM academic_years WHERE school_code = ? ORDER BY year DESC, semester DESC LIMIT 1");
+$stmt_active_y->execute([$school_code]);
+$current_active_year = $stmt_active_y->fetchColumn();
+if (!$current_active_year) {
+    $current_active_year = date('Y') + 543;
+}
+
 // ค้นหาจำเพาะจำนวนการประเมิน
 if ($user_role === 'teacher') {
     $total_records = $pdo->prepare("SELECT COUNT(*) FROM supervisions WHERE teacher_id = ? AND school_code = ?");
@@ -330,8 +337,8 @@ if (isset($_GET['action_export_csv'])) {
             <div class="card-glass bg-white p-4.5 flex items-center gap-3.5">
                 <div class="w-11 h-11 bg-green-50 text-[#43A047] rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">📅</div>
                 <div>
-                    <div class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">ปีการศึกษา</div>
-                    <div class="text-base sm:text-lg font-bold mt-0.5 text-slate-800"><?php echo $total_years; ?> ภาคเรียน</div>
+                    <div class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">ปีการศึกษาปัจจุบัน</div>
+                    <div class="text-base sm:text-lg font-bold mt-0.5 text-slate-800">ปีการศึกษา <?php echo htmlspecialchars($current_active_year); ?></div>
                 </div>
             </div>
 

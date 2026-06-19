@@ -235,6 +235,18 @@ try {
         PRIMARY KEY (`class_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
+    // ถอดคีย์ UNIQUE เดิมที่เป็นปัญหาในการแยกโรงเรียนออก และรองรับการทำ composite key แทน
+    try {
+        $pdo->exec("ALTER TABLE `classrooms` DROP INDEX `class_name`;");
+    } catch (Exception $e) {
+        // ข้ามหากไม่มีอินเด็กซ์เดี่ยว
+    }
+    try {
+        $pdo->exec("ALTER TABLE `classrooms` ADD UNIQUE KEY `uq_class_school` (`class_name`, `school_code`);");
+    } catch (Exception $e) {
+        // ข้ามกรณีมีอยู่แล้ว
+    }
+
     // ตารางเก็บการตั้งค่าโรงเรียน เช่น โลโก้
     $pdo->exec("CREATE TABLE IF NOT EXISTS `school_settings` (
         `school_code` VARCHAR(8) NOT NULL DEFAULT '31054002',

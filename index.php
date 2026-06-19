@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_register_schoo
                     $stmt_ins_u->execute([$fullname_prefixed, $hashed_pwd, $reg_fullname, $reg_school_code]);
                     
                     $pdo->commit();
-                    $success = "ลงทะเบียนโรงเรียนสำเร็จเรียบร้อย! กรุณาโทรติดต่อหรือรอข้อมูลการอนุมัติเปิดใช้งานสิทธิ์ระบบจาก Super Admin คณะผู้ดูแลเพื่อร่วมเริ่มทำงาน";
+                    $success = "สมัครเข้าใช้งานเรียบร้อยแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบก่อนนะครับ";
                     $active_tab = 'login';
                 } catch (Exception $e) {
                     $pdo->rollBack();
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
             } else if ($school_info['status'] === 'deactivated') {
                 $error = "ขออภัยครับ! บริการของโรงเรียนท่านถูกระงับสิทธิ์เข้าใช้งานชั่วคราว กรุณาติดต่อ Super Admin";
             } else if ($school_info['status'] === 'pending') {
-                $error = "ใบสมัครลงทะเบียนโรงเรียนของท่านอยู่ในคิว 'รออนุมัติงาน' เปิดสิทธิ์จาก Super Admin";
+                $error = "สมัครเข้าใช้งานเรียบร้อยแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบก่อนนะครับ";
             } else {
                 // ตรวจหาระดับรหัสผ่าน
                 if ($user && ($password === '123456' || password_verify($password, $user['password']))) {
