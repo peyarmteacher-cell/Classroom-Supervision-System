@@ -1,16 +1,16 @@
 {
-  "name": "Classroom Supervision Systems",
-  "short_name": "ระบบนิเทศครู",
+  "name": "ระบบนิเทศชั้นเรียน",
+  "short_name": "ระบบนิเทศชั้นเรียน",
   "description": "ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน",
   "start_url": "/dashboard.php",
   "display": "standalone",
-  "background_color": "#0A3370",
-  "theme_color": "#0A3370",
+  "background_color": "#F5F7FA",
+  "theme_color": "#1565C0",
   "orientation": "portrait",
   "scope": "/",
   "icons": [
     {
-      "src": "/src/assets/images/school_crest_logo_1781666281619.jpg",
+      "src": "/src/assets/images/pwa_app_icon.jpg",
       "sizes": "512x512",
       "type": "image/jpeg",
       "purpose": "any maskable"

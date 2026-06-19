@@ -222,35 +222,63 @@ if (isset($_GET['action_export_csv'])) {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Sarabun', 'Inter', sans-serif; }
+        body { 
+            font-family: 'Sarabun', 'Inter', sans-serif; 
+            background-color: #F5F7FA;
+        }
+        .glass-header {
+            background: linear-gradient(135deg, #1565C0, #0D47A1);
+            border-bottom: 4px solid #FFC107;
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-glass:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(21, 101, 192, 0.08);
+            border-color: rgba(21, 101, 192, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1565C0, #0D47A1);
+            color: white;
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            opacity: 0.95;
+            box-shadow: 0 4px 12px rgba(21, 101, 192, 0.25);
+        }
     </style>
 </head>
-<body class="bg-[#FAF8F5] min-h-screen text-slate-900 transition-colors duration-200">
+<body class="bg-[#F5F7FA] min-h-screen text-slate-800 pb-16 md:pb-0">
 
     <!-- Top Navigation Ribbon -->
-    <header class="bg-[#0A3370] text-white border-b-4 border-[#F59E0B] shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+    <header class="glass-header text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4.5 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
-                <span class="text-3xl">🏫</span>
+                <img src="/src/assets/images/pwa_app_icon.jpg" alt="Logo" class="w-12 h-12 rounded-xl object-cover border border-white/20 shadow-md" referrerPolicy="no-referrer">
                 <div>
                     <h1 class="text-base sm:text-lg font-extrabold tracking-wide text-white leading-snug">
-                        ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์
+                        ระบบนิเทศการจัดการเรียนการสอน
                     </h1>
-                    <p class="text-[10px] text-amber-300 font-bold block uppercase tracking-wider">
+                    <p class="text-[10px] text-[#FFC107] font-bold block uppercase tracking-wider font-mono">
                         Active Classroom Learning Supervision & Evaluation Hub
                     </p>
                 </div>
             </div>
 
             <!-- Quick Profile status -->
-            <div class="flex items-center gap-3 text-xs bg-black/20 p-2 px-4 rounded-xl border border-white/10">
+            <div class="flex items-center gap-3 text-xs bg-white/10 backdrop-blur-md p-2.5 px-4 rounded-2xl border border-white/10 shadow-inner">
                 <div class="text-right">
-                    <span class="font-bold text-amber-200 block text-[11px]"><?php echo htmlspecialchars($user_fullname); ?></span>
-                    <span class="text-[9px] text-slate-300">สิทธิ์: <?php echo strtoupper($user_role); ?></span>
+                    <span class="font-bold text-[#FFC107] block text-[11px]"><?php echo htmlspecialchars($user_fullname); ?></span>
+                    <span class="text-[9px] text-slate-200 uppercase font-bold tracking-wider">สิทธิ์: <?php echo strtoupper($user_role); ?></span>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <a href="profile.php" class="bg-amber-500 hover:bg-amber-600 text-white font-bold p-1 px-2 rounded text-[9px] text-center transition shadow">ตั้งค่าบัญชี</a>
-                    <a href="logout.php" class="bg-red-600 hover:bg-red-700 text-white font-bold p-1 px-2.5 rounded text-[9px] text-center transition shadow">ออกจากระบบ</a>
+                    <a href="profile.php" class="bg-[#FFC107] hover:bg-amber-600 text-slate-900 font-bold p-1 px-2 rounded-lg text-[9px] text-center transition shadow-sm border-none">ตั้งค่า</a>
+                    <a href="logout.php" class="bg-rose-600 hover:bg-rose-700 text-white font-bold p-1 px-2 rounded-lg text-[9px] text-center transition shadow-sm border-none">ออก</a>
                 </div>
             </div>
         </div>
@@ -259,9 +287,9 @@ if (isset($_GET['action_export_csv'])) {
     <!-- Main Workspace Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
-        <!-- Top Shortcuts Links Navigation Ribbon -->
-        <div class="bg-white border border-slate-200 p-2.5 rounded-2xl shadow-sm flex flex-wrap gap-2 text-xs font-semibold">
-            <a href="dashboard.php" class="px-4 py-2 bg-[#0A3370] text-white rounded-xl shadow-xs font-bold flex items-center gap-1.5">
+        <!-- Top Shortcuts Links Navigation Ribbon (Hidden on Mobile) -->
+        <div class="hidden md:flex bg-white border border-slate-200/80 p-2 rounded-2xl shadow-sm flex-wrap gap-2 text-xs font-semibold">
+            <a href="dashboard.php" class="px-4 py-2 bg-[#1565C0] text-white rounded-xl shadow-sm font-bold flex items-center gap-1.5">
                 📊 แดชบอร์ดสถิติรวม
             </a>
             <?php if ($user_role !== 'teacher'): ?>
@@ -289,55 +317,55 @@ if (isset($_GET['action_export_csv'])) {
         </div>
 
         <!-- 4 Column KPI Cards Block -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             
-            <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center gap-4">
-                <div class="w-12 h-12 bg-blue-50 text-blue-900 rounded-xl flex items-center justify-center text-xl shadow-xs font-bold">👥</div>
+            <div class="card-glass bg-white p-4.5 flex items-center gap-3.5">
+                <div class="w-11 h-11 bg-blue-50 text-[#1565C0] rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">👥</div>
                 <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">จำนวนคุณครูทั้งหมด</div>
-                    <div class="text-xl font-bold mt-0.5 text-slate-800"><?php echo $total_teachers; ?> ท่าน</div>
+                    <div class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">จำนวนคุณครู</div>
+                    <div class="text-base sm:text-lg font-bold mt-0.5 text-slate-800"><?php echo $total_teachers; ?> ท่าน</div>
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center gap-4">
-                <div class="w-12 h-12 bg-purple-50 text-purple-605 rounded-xl flex items-center justify-center text-xl shadow-xs font-bold">📅</div>
+            <div class="card-glass bg-white p-4.5 flex items-center gap-3.5">
+                <div class="w-11 h-11 bg-green-50 text-[#43A047] rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">📅</div>
                 <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ปีการศึกษา</div>
-                    <div class="text-xl font-bold mt-0.5 text-slate-800"><?php echo $total_years; ?> เทอมศึกษา</div>
+                    <div class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">ปีการศึกษา</div>
+                    <div class="text-base sm:text-lg font-bold mt-0.5 text-slate-800"><?php echo $total_years; ?> ภาคเรียน</div>
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center gap-4">
-                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl shadow-xs font-bold">📝</div>
+            <div class="card-glass bg-white p-4.5 flex items-center gap-3.5">
+                <div class="w-11 h-11 bg-amber-50 text-[#FFC107] rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">📝</div>
                 <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">บันทึกนิเทศวิทยฐานะ</div>
-                    <div class="text-xl font-bold mt-0.5 text-slate-800"><?php echo $total_records; ?> คาบวิชา <span class="text-xs text-emerald-650 font-semibold">(ส่ง <?php echo $total_submitted; ?>)</span></div>
+                    <div class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">บันทึกนิเทศ</div>
+                    <div class="text-base sm:text-lg font-bold mt-0.5 text-slate-800"><?php echo $total_records; ?> คาบศึกษา <br class="sm:hidden"><span class="text-[10px] text-[#43A047] font-semibold">(ส่ง <?php echo $total_submitted; ?>)</span></div>
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center gap-4">
-                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl shadow-xs font-bold">🎯</div>
+            <div class="card-glass bg-white p-4.5 flex items-center gap-3.5">
+                <div class="w-11 h-11 bg-indigo-50 text-[#1565C0] rounded-xl flex items-center justify-center text-xl shadow-sm font-bold">🎯</div>
                 <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">คะแนนมาตรฐานเฉลี่ยสะสม</div>
-                    <div class="text-xl font-bold mt-0.5 text-slate-800"><?php echo $score_average_pct; ?>% <span class="text-[10px] text-slate-400">จากเกณฑ์หลัก</span></div>
+                    <div class="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">คะแนนเฉลี่ย</div>
+                    <div class="text-base sm:text-lg font-bold mt-0.5 text-[#1565C0]"><?php echo $score_average_pct; ?>% <span class="text-[9px] text-slate-450 block font-normal">จากระดับเกณฑ์</span></div>
                 </div>
             </div>
 
         </div>
 
         <!-- Toolbar: Search and Filter Row -->
-        <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center text-xs">
+        <div class="card-glass bg-white p-4 flex flex-col md:flex-row gap-3 justify-between items-center text-xs">
             <form method="GET" class="w-full flex flex-col sm:flex-row gap-3">
                 
                 <!-- Search text box -->
                 <div class="flex-1 relative">
-                    <span class="absolute left-3 top-2.5 text-slate-405">🔍</span>
-                    <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="พิมพ์ค้นหาชื่อครู, วิชา, คลาสชั้นเรียน หรือผู้นิเทศ..." class="w-full pl-8 pr-3 py-2 bg-slate-55 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-900 outline-none text-slate-850">
+                    <span class="absolute left-3.5 top-3 text-slate-400">🔍</span>
+                    <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="พิมพ์ค้นหาชื่อครู, วิชา, คลาสชั้นเรียน หรือผู้นิเทศ..." class="w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs focus:ring-4 focus:ring-blue-100 focus:border-[#1565C0] outline-none text-slate-800 font-semibold transition-all">
                 </div>
 
                 <!-- Academic term select dropdown -->
                 <div class="w-full sm:w-48">
-                    <select name="filter_year" onchange="this.form.submit()" class="w-full px-3 py-2 bg-slate-55 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer outline-none">
+                    <select name="filter_year" onchange="this.form.submit()" class="w-full px-3 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs font-bold text-slate-700 cursor-pointer outline-none focus:ring-4 focus:ring-blue-100 transition-all">
                         <option value="all">-- ทุกภาคเรียน --</option>
                         <?php foreach ($years_list as $yr): ?>
                             <option value="<?php echo htmlspecialchars($yr['year_id']); ?>" <?php if ($filter_year === $yr['year_id']) echo 'selected'; ?>>
@@ -348,11 +376,11 @@ if (isset($_GET['action_export_csv'])) {
                 </div>
 
                 <div class="flex gap-2">
-                    <button type="submit" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-750 font-bold rounded-xl whitespace-nowrap cursor-pointer">
+                    <button type="submit" class="px-5 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl whitespace-nowrap cursor-pointer transition border-none text-center">
                         กรองข้อมูล
                     </button>
                     <?php if ($search_query !== '' || $filter_year !== 'all'): ?>
-                        <a href="dashboard.php" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl whitespace-nowrap flex items-center justify-center">
+                        <a href="dashboard.php" class="px-4 py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl whitespace-nowrap flex items-center justify-center border-none transition">
                             ❌ ล้างฟิลเตอร์
                         </a>
                     <?php endif; ?>
@@ -361,8 +389,8 @@ if (isset($_GET['action_export_csv'])) {
             </form>
 
             <div class="w-full md:w-auto">
-                <a href="dashboard.php?action_export_csv=1&filter_year=<?php echo urlencode($filter_year); ?>&search=<?php echo urlencode($search_query); ?>" class="w-full md:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs border-b-2 border-emerald-850 transition">
-                    📥 ดาวน์โหลดรายงาน Excel (CSV UTF-8 BOM)
+                <a href="dashboard.php?action_export_csv=1&filter_year=<?php echo urlencode($filter_year); ?>&search=<?php echo urlencode($search_query); ?>" class="w-full md:w-auto px-5 py-3 bg-gradient-to-r from-[#43A047] to-[#2E7D32] hover:opacity-95 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition shadow-sm border-none shadow-green-100">
+                    📥 ดาวน์โหลดรายงาน Excel (CSV)
                 </a>
             </div>
         </div>
@@ -497,10 +525,37 @@ if (isset($_GET['action_export_csv'])) {
 
     </main>
 
+    <!-- Spacing at the bottom for mobile navigation bar -->
+    <div class="h-20 md:hidden"></div>
+
+    <!-- Beautiful Bottom Navigation Bar for Mobile App Feeling -->
+    <div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 md:hidden flex justify-around items-center py-2 px-1 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] rounded-t-[18px]">
+        <a href="dashboard.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-[#1565C0] font-bold">
+            <span class="text-xl">🏠</span>
+            <span class="text-[9px]">หน้าหลัก</span>
+        </a>
+        <a href="supervision.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">📝</span>
+            <span class="text-[9px]">นิเทศ</span>
+        </a>
+        <a href="comparison.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">📊</span>
+            <span class="text-[9px]">รายงาน</span>
+        </a>
+        <a href="teachers.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">👥</span>
+            <span class="text-[9px]">ทะเบียนครู</span>
+        </a>
+        <a href="profile.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">⚙️</span>
+            <span class="text-[9px]">ตั้งค่า</span>
+        </a>
+    </div>
+
     <!-- Clean Footer block -->
     <footer class="py-6 mt-12 border-t border-slate-200 bg-white text-center text-[11px] text-slate-400 select-none leading-relaxed">
-        <p>ระบบเว็บแอพพลิเคชันเพื่อสุขภาวะและวิทยฐานะประกอบคุณครู สังกัดกระทรวงศึกษาธิการ ประเทศไทย</p>
-        <p class="mt-1">พัฒนารหัสด้วยมาตรฐานสูงสุด <strong>PHP 8.2+</strong> & <strong>MySQL 8</strong> อัปเดตฐานข้อมูลไดนามิกอเนกประสงค์</p>
+        <p>ระบบนิเทศการจัดการเรียนการสอน - สังกัดกระทรวงศึกษาธิการ</p>
+        <p class="mt-1">พัฒนารหัสด้วยมาตรฐานสูงสุด <strong>PHP 8.2+</strong> & <strong>MySQL 8</strong> อัปเดตฐานข้อมูลอัตโนมัติ</p>
     </footer>
 
 </body>

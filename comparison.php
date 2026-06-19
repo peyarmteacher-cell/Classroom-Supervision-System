@@ -102,37 +102,53 @@ foreach ($teachers as $t) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายงานวิเคราะห์คุณภาพครูผู้สอน - ระบบนิเทศโรงเรียน</title>
+    <title>รายงานวิเคราะห์คุณภาพครูผู้สอน - ระบบนิเทศออนไลน์</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Sarabun', 'Inter', sans-serif; } </style>
+    <style>
+        body { 
+            font-family: 'Sarabun', 'Inter', sans-serif; 
+            background-color: #F5F7FA;
+        }
+        .glass-header {
+            background: linear-gradient(135deg, #1565C0, #0D47A1);
+            border-bottom: 4px solid #FFC107;
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: all 0.25s ease;
+        }
+    </style>
 </head>
-<body class="bg-[#FAF8F5] min-h-screen text-slate-900 duration-200">
+<body class="bg-[#F5F7FA] min-h-screen text-slate-800 pb-16 md:pb-0">
 
     <!-- Header Navbar -->
-    <header class="bg-[#0A3370] text-white border-b-4 border-[#F59E0B] shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+    <header class="glass-header text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4.5 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
-                <span class="text-3xl">🏫</span>
+                <img src="/src/assets/images/pwa_app_icon.jpg" alt="Logo" class="w-12 h-12 rounded-xl object-cover border border-white/20 shadow-md" referrerPolicy="no-referrer">
                 <div>
                     <h1 class="text-base sm:text-lg font-extrabold tracking-wide text-white leading-snug">
-                        ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์
+                        ระบบนิเทศการจัดการเรียนการสอน
                     </h1>
-                    <p class="text-[10px] text-amber-300 font-bold block uppercase tracking-wider">
+                    <p class="text-[10px] text-[#FFC107] font-bold block uppercase tracking-wider font-mono">
                         Active Classroom Learning Supervision & Evaluation Hub
                     </p>
                 </div>
             </div>
 
             <!-- Quick Profile status -->
-            <div class="flex items-center gap-3 text-xs bg-black/20 p-2 px-4 rounded-xl border border-white/10">
+            <div class="flex items-center gap-3 text-xs bg-white/10 backdrop-blur-md p-2.5 px-4 rounded-2xl border border-white/10 shadow-inner">
                 <div class="text-right">
-                    <span class="font-bold text-amber-200 block text-[11px]"><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
-                    <span class="text-[9px] text-slate-300">สิทธิ์: <?php echo strtoupper($_SESSION['role']); ?></span>
+                    <span class="font-bold text-[#FFC107] block text-[11px]"><?php echo htmlspecialchars($_SESSION['fullname']); ?></span>
+                    <span class="text-[9px] text-slate-200 uppercase font-bold tracking-wider">สิทธิ์: <?php echo strtoupper($_SESSION['role']); ?></span>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <a href="profile.php" class="bg-amber-500 hover:bg-amber-600 text-white font-bold p-1 px-2 rounded text-[9px] text-center transition shadow">ตั้งค่าบัญชี</a>
-                    <a href="logout.php" class="bg-red-600 hover:bg-red-700 text-white font-bold p-1 px-2.5 rounded text-[9px] text-center transition shadow">ออกจากระบบ</a>
+                    <a href="profile.php" class="bg-[#FFC107] hover:bg-amber-600 text-slate-900 font-bold p-1 px-2 rounded-lg text-[9px] text-center transition shadow-sm border-none">ตั้งค่า</a>
+                    <a href="logout.php" class="bg-rose-600 hover:bg-rose-700 text-white font-bold p-1 px-2 rounded-lg text-[9px] text-center transition shadow-sm border-none">ออก</a>
                 </div>
             </div>
         </div>
@@ -141,8 +157,8 @@ foreach ($teachers as $t) {
     <!-- Main Workspace Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
-        <!-- Shortcuts Ribbon -->
-        <div class="bg-white border border-slate-200 p-2.5 rounded-2xl shadow-sm flex flex-wrap gap-2 text-xs font-semibold">
+        <!-- Shortcuts Ribbon (Hidden on Mobile) -->
+        <div class="hidden md:flex bg-white border border-slate-200/80 p-2 rounded-2xl shadow-sm flex-wrap gap-2 text-xs font-semibold">
             <a href="dashboard.php" class="px-4 py-2 text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 font-semibold">
                 📊 แดชบอร์ดสถิติรวม
             </a>
@@ -151,7 +167,7 @@ foreach ($teachers as $t) {
                     ➕ บันทึกนิเทศคาบเรียนใหม่
                 </a>
             <?php endif; ?>
-            <a href="comparison.php" class="px-4 py-2 bg-[#0A3370] text-white rounded-xl shadow-xs font-bold flex items-center gap-1.5">
+            <a href="comparison.php" class="px-4 py-2 bg-[#1565C0] text-white rounded-xl shadow-sm font-bold flex items-center gap-1.5">
                 🔎 วิเคราะห์ครูรายบุคคล/เปรียบเทียบ
             </a>
             <?php if ($user_role === 'admin' || $user_role === 'director'): ?>
@@ -266,10 +282,37 @@ foreach ($teachers as $t) {
 
     </main>
 
+    <!-- Spacing at the bottom for mobile navigation bar -->
+    <div class="h-20 md:hidden"></div>
+
+    <!-- Beautiful Bottom Navigation Bar for Mobile App Feeling -->
+    <div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 md:hidden flex justify-around items-center py-2 px-1 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] rounded-t-[18px]">
+        <a href="dashboard.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">🏠</span>
+            <span class="text-[9px]">หน้าหลัก</span>
+        </a>
+        <a href="supervision.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">📝</span>
+            <span class="text-[9px]">นิเทศ</span>
+        </a>
+        <a href="comparison.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-[#1565C0] font-bold">
+            <span class="text-xl">📊</span>
+            <span class="text-[9px]">รายงาน</span>
+        </a>
+        <a href="teachers.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">👥</span>
+            <span class="text-[9px]">ทะเบียนครู</span>
+        </a>
+        <a href="profile.php" class="flex flex-col items-center gap-1 flex-1 text-center py-1 transition-all text-slate-400 hover:text-slate-600">
+            <span class="text-xl">⚙️</span>
+            <span class="text-[9px]">ตั้งค่า</span>
+        </a>
+    </div>
+
     <!-- Clean Footer block -->
     <footer class="py-6 mt-12 border-t border-slate-200 bg-white text-center text-[11px] text-slate-400 select-none leading-relaxed">
-        <p>ระบบเว็บแอพพลิเคชันเพื่อสุขภาวะและวิทยฐานะประกอบคุณครู สังกัดกระทรวงศึกษาธิการ ประเทศไทย</p>
-        <p class="mt-1">พัฒนารหัสด้วยมาตรฐานสูงสุด <strong>PHP 8.2+</strong> & <strong>MySQL 8</strong> อัปเดตฐานข้อมูลไดนามิกอเนกประสงค์</p>
+        <p>ระบบนิเทศการจัดการเรียนการสอน - สังกัดกระทรวงศึกษาธิการ</p>
+        <p class="mt-1">พัฒนารหัสด้วยมาตรฐานสูงสุด <strong>PHP 8.2+</strong> & <strong>MySQL 8</strong> อัปเดตฐานข้อมูลอัตโนมัติ</p>
     </footer>
 
 </body>
