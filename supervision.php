@@ -63,10 +63,20 @@ if ($edit_id) {
 
 $current_photos = json_decode($photos_json, true) ?: [];
 
-// โหลดทะเบียนคุณครู & ปีการศึกษามาทำ Dropdown
-$dropdown_teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
-$dropdown_years = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
-$dropdown_classrooms = $pdo->query("SELECT * FROM classrooms ORDER BY class_name ASC")->fetchAll();
+$school_code = $_SESSION['school_code'] ?? '31054002';
+
+// โหลดทะเบียนคุณครู & ปีการศึกษามาทำ Dropdown ของแต่ละโรงเรียนโดยตรง
+$stmt_teachers_drop = $pdo->prepare("SELECT * FROM teachers WHERE school_code = ? ORDER BY teacher_id ASC");
+$stmt_teachers_drop->execute([$school_code]);
+$dropdown_teachers = $stmt_teachers_drop->fetchAll();
+
+$stmt_years_drop = $pdo->prepare("SELECT * FROM academic_years WHERE school_code = ? ORDER BY year DESC, semester DESC");
+$stmt_years_drop->execute([$school_code]);
+$dropdown_years = $stmt_years_drop->fetchAll();
+
+$stmt_classrooms_drop = $pdo->prepare("SELECT * FROM classrooms WHERE school_code = ? ORDER BY class_name ASC");
+$stmt_classrooms_drop->execute([$school_code]);
+$dropdown_classrooms = $stmt_classrooms_drop->fetchAll();
 
 // โหลดข้อคำถามนิเทศกลุ่มกระทรวง 5 หมวดหลักจากดาต้าเบส
 $evaluation_items = $pdo->query("SELECT * FROM evaluation_items ORDER BY CAST(item_id AS UNSIGNED) ASC")->fetchAll();
@@ -151,15 +161,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             exit;
         } else {
             // การเพิ่มแบบประเมินนิเทศใหม่ โดยสร้างไอดีอิงตามสากลกระทรวงศาสนาพุทธ เช่น REC-2569-001
-            $get_y = $pdo->prepare("SELECT year FROM academic_years WHERE year_id = ?");
-            $get_y->execute([$year_id]);
+            $get_y = $pdo->prepare("SELECT year FROM academic_years WHERE year_id = ? AND school_code = ?");
+            $get_y->execute([$year_id, $school_code]);
             $year_val = $get_y->fetchColumn() ?: '2569';
 
-            // นับเลขลำดับเพื่อความสอดคล้อง
+            // นับเลขลำดับเพื่อความสอดคล้อง เฉพาะภายในโรงเรียนปัจจุบัน
             $curr_max_num = 0;
-            $all_recs = $pdo->query("SELECT record_id FROM supervisions")->fetchAll(PDO::FETCH_COLUMN);
+            $stmt_recs = $pdo->prepare("SELECT record_id FROM supervisions WHERE school_code = ?");
+            $stmt_recs->execute([$school_code]);
+            $all_recs = $stmt_recs->fetchAll(PDO::FETCH_COLUMN);
             foreach ($all_recs as $r_id) {
-                // รูปแบบ REC-YYYY-XXX
+                // รูปแบบ REC-YYYY-XXX หรือ REC-YYYY-XXX-SCHOOLCODE
                 if (preg_match('/REC-\d+-(\d+)/', $r_id, $matches)) {
                     $num = (int)$matches[1];
                     if ($num > $curr_max_num) {
@@ -168,20 +180,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                 }
             }
             $next_num = $curr_max_num + 1;
-            $new_record_id = "REC-{$year_val}-" . str_pad($next_num, 3, '0', STR_PAD_LEFT);
+            $new_record_id = "REC-{$year_val}-" . str_pad($next_num, 3, '0', STR_PAD_LEFT) . "-" . $school_code;
 
             $query = "
                 INSERT INTO supervisions (
                     record_id, teacher_id, year_id, class_name, subject_name, date_string,
                     scores_json, comments_strengths, comments_suggestions, comments_development,
-                    evaluator_name, evaluator_position, status, photos_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    evaluator_name, evaluator_position, status, photos_json, school_code
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ";
             $stmt = $pdo->prepare($query);
             $stmt->execute([
                 $new_record_id, $teacher_id, $year_id, $class_name, $subject_name, $date_string,
                 $scores_json_str, $comments_strengths, $comments_suggestions, $comments_development,
-                $evaluator_name, $evaluator_position, $status, $photos_json_saved
+                $evaluator_name, $evaluator_position, $status, $photos_json_saved, $school_code
             ]);
 
             $success_msg = "ประเมินนิเทศคาบสอนครู {$new_record_id} ลงระบบสารสนเทศเรียบร้อย!";

@@ -50,6 +50,12 @@ if ($user_role === 'teacher' && $rec['teacher_id'] !== $my_teacher_id) {
     exit;
 }
 
+// ตรวจสอบความปลอดภัยโรงเรียนอื่นๆ ไม่สามารถดูประวัติข้ามกันได้ (ยกเว้น super_admin)
+if ($_SESSION['role'] !== 'super_admin' && $rec['school_code'] !== ($_SESSION['school_code'] ?? '31054002')) {
+    echo "<h1>ขออภัย ข้อมูลข่าวสารถูกกำหนดสิทธิ์เป็นของโรงเรียนอื่นในสารบบระบบเครือข่ายความปลอดภัยหลัก</h1>";
+    exit;
+}
+
 $scores = json_decode($rec['scores_json'], true) ?: [];
 $sum = array_sum($scores);
 $pct = ($sum / 100) * 100;
@@ -76,12 +82,13 @@ $evaluation_items = $pdo->query("SELECT * FROM evaluation_items ORDER BY CAST(it
 $photos = json_decode($rec['photos_json'], true) ?: [];
 
 // โหลดข้อมูลตราโลโก้และชื่อโรงเรียน
-$stmt_logo = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_logo'");
-$stmt_logo->execute();
+$rec_school_code = $rec['school_code'] ?? ($_SESSION['school_code'] ?? '31054002');
+$stmt_logo = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_logo' AND school_code = ?");
+$stmt_logo->execute([$rec_school_code]);
 $school_logo = $stmt_logo->fetchColumn() ?: '';
 
-$stmt_sname = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_name'");
-$stmt_sname->execute();
+$stmt_sname = $pdo->prepare("SELECT setting_value FROM school_settings WHERE setting_key = 'school_name' AND school_code = ?");
+$stmt_sname->execute([$rec_school_code]);
 $school_name = $stmt_sname->fetchColumn() ?: 'ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์';
 if ($school_name === 'ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน') {
     $school_name = 'ระบบนิเทศการจัดการเรียนการสอนโรงเรียนบ้านหนองหว้า อำเภอหนองกี่ จังหวัดบุรีรัมย์';

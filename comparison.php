@@ -13,8 +13,12 @@ if (!isset($_SESSION['username'])) {
 
 $user_role = $_SESSION['role'] ?? 'teacher';
 
-// ดึงปีการศึกษาเพื่อทำตัวเลือกในการเปรียบเทียบ
-$years_list = $pdo->query("SELECT * FROM academic_years ORDER BY year DESC, semester DESC")->fetchAll();
+$school_code = $_SESSION['school_code'] ?? '31054002';
+
+// ดึงปีการศึกษาเพื่อทำตัวเลือกในการเปรียบเทียบ ของแต่ละโรงเรียนโดยตรง
+$stmt_yl = $pdo->prepare("SELECT * FROM academic_years WHERE school_code = ? ORDER BY year DESC, semester DESC");
+$stmt_yl->execute([$school_code]);
+$years_list = $stmt_yl->fetchAll();
 $filter_year = $_GET['filter_year'] ?? 'all';
 
 // โฮสต์จัดประเภทเกณฑ์ 4 หมวดหลักเป็นโครงสร้างอาร์เรย์ (รวม 20 ข้อเต็ม)
@@ -28,11 +32,13 @@ $categories = [
 // โหลดรายชื่อครูที่มีสิทธิ์แสดงผลในตาราง
 if ($user_role === 'teacher') {
     $my_teacher_username = $_SESSION['username'] ?? '';
-    $stmt_teachers = $pdo->prepare("SELECT * FROM teachers WHERE username = ?");
-    $stmt_teachers->execute([$my_teacher_username]);
+    $stmt_teachers = $pdo->prepare("SELECT * FROM teachers WHERE username = ? AND school_code = ?");
+    $stmt_teachers->execute([$my_teacher_username, $school_code]);
     $teachers = $stmt_teachers->fetchAll();
 } else {
-    $teachers = $pdo->query("SELECT * FROM teachers ORDER BY teacher_id ASC")->fetchAll();
+    $stmt_teachers = $pdo->prepare("SELECT * FROM teachers WHERE school_code = ? ORDER BY teacher_id ASC");
+    $stmt_teachers->execute([$school_code]);
+    $teachers = $stmt_teachers->fetchAll();
 }
 
 // อ่างรายงานวิเคราะห์ครูแต่ละคนเพื่อป้อนลงโมเดลตารางเปรียบเทียบ
