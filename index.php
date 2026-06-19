@@ -16,13 +16,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_register_schoo
     $reg_school_name = trim($_POST['reg_school_name'] ?? '');
     $reg_affiliation = trim($_POST['reg_affiliation'] ?? '');
     $reg_fullname = trim($_POST['reg_fullname'] ?? '');
-    $reg_username = trim($_POST['reg_username'] ?? '');
-    $reg_password = trim($_POST['reg_password'] ?? '');
+    $reg_position = trim($_POST['reg_position'] ?? '');
+    $reg_citizen_id = trim($_POST['reg_citizen_id'] ?? '');
+    $reg_password = '123456'; // บังคับรหัสผ่านครั้งแรกเป็น 1-6
 
     if (strlen($reg_school_code) !== 8 || !is_numeric($reg_school_code)) {
-        $error = "รหัสโรงเรียน SMISS จะต้องเป็นตัวเลข 8 หลักเท่านั้น ถ้วนถูกต้อง";
-    } else if (empty($reg_school_name) || empty($reg_affiliation) || empty($reg_fullname) || empty($reg_username) || empty($reg_password)) {
-        $error = "กรุณากรอกข้อมูลระดับโรงเรียนและสิทธิ์ผู้ดูแลโรงเรียนให้ครบถ้วนทุกช่องหลัก";
+        $error = "รหัสโรงเรียน SMISS จะต้องเป็นตัวเลข 8 หลักเท่านั้น โปรดตรวจสอบความถูกต้อง";
+    } else if (strlen($reg_citizen_id) !== 13 || !is_numeric($reg_citizen_id)) {
+        $error = "หมายเลขประจำตัวประชาชนของผู้ดูแลระบบจะต้องเป็นตัวเลข 13 หลักเท่านั้น";
+    } else if (empty($reg_school_name) || empty($reg_affiliation) || empty($reg_fullname) || empty($reg_position)) {
+        $error = "กรุณากรอกข้อมูลระดับโรงเรียน และข้อมูลผู้ดูแลระบบให้ครบถ้วนทุกช่องหลัก";
     } else {
         // เช็คการลงทะเบียนซ้ำ
         $stmt_check = $pdo->prepare("SELECT COUNT(*) FROM schools WHERE school_code = ?");
@@ -30,12 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_register_schoo
         if ($stmt_check->fetchColumn() > 0) {
             $error = "ขออภัยครับ! รหัส SMISS โรงเรียน '{$reg_school_code}' ได้รับการลงทะเบียนใช้งานก่อนหน้านี้ในระบบแล้ว";
         } else {
-            // เช็คชื่อแอดมินซ้ำซ้อน
-            $fullname_prefixed = $reg_school_code . '_' . $reg_username;
+            // เช็คชื่อแอดมินซ้ำซ้อน (เช็คจากเลขประจำตัวประชาชน)
             $stmt_u_chk = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
-            $stmt_u_chk->execute([$fullname_prefixed]);
+            $stmt_u_chk->execute([$reg_citizen_id]);
             if ($stmt_u_chk->fetchColumn() > 0) {
-                $error = "ชื่อบัญชีผู้ดูแลระบบโรงเรียน '{$reg_username}' ซ้ำกับข้อมูลบุคลากรในสารระบบเครือข่าย";
+                $error = "ขออภัย! หมายเลขประจำตัวประชาชน '{$reg_citizen_id}' นี้ มีในฐานข้อมูลระบบอยู่แล้ว";
             } else {
                 $pdo->beginTransaction();
                 try {
@@ -43,13 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_register_schoo
                     $stmt_ins_s = $pdo->prepare("INSERT INTO schools (school_code, school_name, affiliation, status) VALUES (?, ?, ?, 'pending')");
                     $stmt_ins_s->execute([$reg_school_code, $reg_school_name, $reg_affiliation]);
                     
-                    // 2. สร้างบัญชี Admin ประจำโรงเรียนนี้ในตาราง users
+                    // 2. สร้างบัญชี Admin ประจำโรงเรียนนี้ในตาราง users (username = เลขประจำตัวประชาชน 13 หลัก)
                     $hashed_pwd = password_hash($reg_password, PASSWORD_DEFAULT);
+                    $fullname_with_pos = $reg_fullname . ' (' . $reg_position . ')';
                     $stmt_ins_u = $pdo->prepare("INSERT INTO users (username, password, fullname, role, school_code) VALUES (?, ?, ?, 'admin', ?)");
-                    $stmt_ins_u->execute([$fullname_prefixed, $hashed_pwd, $reg_fullname, $reg_school_code]);
+                    $stmt_ins_u->execute([$reg_citizen_id, $hashed_pwd, $fullname_with_pos, $reg_school_code]);
                     
                     $pdo->commit();
-                    $success = "สมัครเข้าใช้งานเรียบร้อยแล้ว กรุณารอการอนุมัติจากผู้ดูแลระบบก่อนนะครับ";
+                    $success = "สมัครเข้าใช้งานเรียบร้อยแล้ว! ไอดีล็อกอินคือหมายเลขประจำตัวประชาชน 13 หลัก และรหัสผ่านตั้งต้นใช้ครั้งแรกคือ 123456 กรุณารอผู้ดูแลระบบอนุมัติใช้งานครับ";
                     $active_tab = 'login';
                 } catch (Exception $e) {
                     $pdo->rollBack();
@@ -291,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
                     <label class="text-xs font-bold text-slate-500 block">ชื่อผู้ใช้งานล็อกอิน (Username) *</label>
                     <div class="relative">
                         <span class="absolute left-3 top-3 text-slate-400 text-base">👤</span>
-                        <input type="text" name="username" required placeholder="ชื่อภาษาอังกฤษหรือรหัสคุณครูส่วนบุคคล" class="w-full pl-10 pr-4 py-3 bg-white text-slate-800 border border-slate-200 rounded-2xl text-xs focus:border-[#1565C0] focus:ring-4 focus:ring-blue-100 outline-none font-semibold transition-all duration-200 shadow-sm">
+                        <input type="text" name="username" required placeholder="ชื่อภาษาอังกฤษ รหัสครู หรือเลขบัตรประชาชน 13 หลัก" class="w-full pl-10 pr-4 py-3 bg-white text-slate-800 border border-slate-200 rounded-2xl text-xs focus:border-[#1565C0] focus:ring-4 focus:ring-blue-100 outline-none font-semibold transition-all duration-200 shadow-sm">
                     </div>
                 </div>
 
@@ -301,6 +304,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
                         <span class="absolute left-3 top-3 text-slate-400 text-base">🔑</span>
                         <input type="password" name="password" required placeholder="ระบุพาสเวิร์ดส่วนของบัญชี" class="w-full pl-10 pr-4 py-3 bg-white text-slate-800 border border-slate-200 rounded-2xl text-xs focus:border-[#1565C0] focus:ring-4 focus:ring-blue-100 outline-none font-semibold transition-all duration-200 shadow-sm">
                     </div>
+                </div>
+
+                <div class="bg-amber-50/70 border border-amber-100 p-2.5 rounded-xl text-[10.5px] text-amber-805 leading-relaxed font-semibold">
+                    💡 <strong>โรงเรียนสมัครใหม่:</strong> บัญชีผู้ดูแลระบบ (School Admin) ที่ผ่านการอนุมัติแล้ว ให้เข้าใช้ด้วย <strong>หมายเลขประจำตัวประชาชน 13 หลัก</strong> ที่ลงทะเบียนไว้ และรหัสผ่านตั้งต้นครั้งแรกคือ <strong>123456</strong> ครับ
                 </div>
 
                 <button type="submit" class="w-full py-3 bg-gradient-to-r from-[#1565C0] to-[#0D47A1] hover:opacity-95 text-white font-bold rounded-2xl text-xs shadow-md shadow-blue-200 transition-all active:scale-[0.98] duration-150 cursor-pointer text-center block border-none">
@@ -340,22 +347,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
 
                 <!-- Admin User Account Section -->
                 <div class="space-y-3.5 pt-1.5">
-                    <h3 class="font-extrabold text-[#0A3370] text-xs">👤 ข้อมูลบัญชีผู้ประสานงานสูงสุด (School Admin)</h3>
+                    <h3 class="font-extrabold text-[#0A3370] text-xs">👤 ข้อมูลผู้ดูแลระบบระดับโรงเรียน (School Admin)</h3>
                     
                     <div class="space-y-1">
-                        <label class="text-slate-500 block font-bold">ชื่อ-นามสกุล / ตำแหน่งผู้ประสานระบบโรงเรียน *</label>
-                        <input type="text" name="reg_fullname" required placeholder="เช่น นายวารินทร์ รัตน์สวาทดิ์ (ครูวิชาการ)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+                        <label class="text-slate-500 block font-bold">ชื่อ-นามสกุล ของครูที่จะดูแลระบบ *</label>
+                        <input type="text" name="reg_fullname" required placeholder="เช่น นายสมชาย ใจดี" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-semibold">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="space-y-1">
-                            <label class="text-slate-500 block font-bold">ชื่อล็อกอิน (Admin Username) *</label>
-                            <input type="text" name="reg_username" required placeholder="เช่น admin" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono">
+                            <label class="text-slate-500 block font-bold">ตำแหน่งของครูผู้ดูแลระบบประจำโรงเรียน *</label>
+                            <input type="text" name="reg_position" required placeholder="เช่น ครูวิชาการ, รักษาการผู้อำนวยการ" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-semibold">
                         </div>
                         <div class="space-y-1">
-                            <label class="text-slate-500 block font-bold">รหัสผ่าน (Admin Password) *</label>
-                            <input type="password" name="reg_password" required placeholder="กำหนดรหัสผ่าน" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none">
+                            <label class="text-slate-500 block font-bold">หมายเลขประจำตัวประชาชน 13 หลัก * <span class="text-emerald-600 font-extrabold">(ใช้เป็น Username ล็อกอิน)</span></label>
+                            <input type="text" name="reg_citizen_id" required maxlength="13" placeholder="ระบุเลขบัตรประชาชน 13 หลัก" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono font-bold text-slate-800 tracking-wider">
                         </div>
+                    </div>
+
+                    <div class="bg-amber-50/70 border border-amber-150 p-3 rounded-lg text-[10px] text-amber-800 leading-normal font-semibold">
+                        🔑 <strong>เงื่อนไขความเป็นส่วนตัวและความปลอดภัย:</strong> การสมัครใช้ระบบนี้จะใช้ <strong>หมายเลขประจำตัวประชาชน 13 หลัก เป็นชื่อผู้ใช้งาน (Username) ป้องกันการสับสนและชนกันของบัญชี</strong> และระบบจะทำการกำหนด <strong>รหัสผ่านสำหรับเข้าใช้งานครั้งแรกเป็น "123456"</strong> ซึ่งหลังจากที่ได้รับการอนุมัติเปิดใช้านระบบโรงเรียนเรียบร้อยแล้ว คุณครูสามารถเข้าไปปรับเปลี่ยนหรือแก้ไขรหัสผ่านใหม่ได้ทันทีผ่านหน้าเมนูตั้งค่าโปรไฟล์ส่วนตัว
                     </div>
                 </div>
 
