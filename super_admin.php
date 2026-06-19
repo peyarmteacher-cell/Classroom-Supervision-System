@@ -123,7 +123,7 @@ if (isset($_GET['approve_code'])) {
             $check_years->execute([$approve_code]);
             if ($check_years->fetchColumn() == 0) {
                 $current_year = date('Y') + 543;
-                $new_year_id = "YR{$current_year}-1";
+                $new_year_id = "YR{$current_year}-1-{$approve_code}";
                 $stmt_year = $pdo->prepare("INSERT INTO academic_years (year_id, year, semester, school_code) VALUES (?, ?, '1', ?)");
                 $stmt_year->execute([$new_year_id, $current_year, $approve_code]);
             }
