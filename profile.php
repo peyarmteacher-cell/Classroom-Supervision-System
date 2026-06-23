@@ -362,17 +362,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
             <div class="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4">
                 <div class="text-center space-y-2">
                     <div class="w-24 h-24 bg-amber-100/70 border border-amber-200 text-amber-700 flex items-center justify-center text-4xl rounded-xl mx-auto overflow-hidden relative shadow-inner">
-                        <?php if ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && is_valid_photo($teacher_data['photo_path'])): ?>
-                            <img src="<?php echo htmlspecialchars($teacher_data['photo_path']); ?>" alt="รูปภาพประจำตัวครู" class="w-full h-full object-cover">
-                        <?php else: ?>
-                            <span class="text-4xl"><?php echo $user_role === 'teacher' ? '👩‍🏫' : '👑'; ?></span>
-                        <?php endif; ?>
+                        <img id="profile-photo-preview" src="<?php echo ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && is_valid_photo($teacher_data['photo_path'])) ? htmlspecialchars($teacher_data['photo_path']) : ''; ?>" 
+                             alt="รูปภาพประจำตัวครู" 
+                             class="w-full h-full object-cover <?php echo ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && is_valid_photo($teacher_data['photo_path'])) ? '' : 'hidden'; ?>">
+                        
+                        <span id="profile-photo-placeholder" class="text-4xl <?php echo ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && is_valid_photo($teacher_data['photo_path'])) ? 'hidden' : ''; ?>"><?php echo $user_role === 'teacher' ? '👩‍🏫' : '👑'; ?></span>
+                        
+                        <!-- Loading Spinner Overlay -->
+                        <div id="profile-upload-spinner" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex flex-col items-center justify-center text-white transition-opacity duration-250 opacity-0 pointer-events-none">
+                            <svg class="animate-spin h-5 w-5 text-amber-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
                     </div>
                     <div>
                         <h3 class="font-extrabold text-slate-800 text-sm"><?php echo htmlspecialchars($u_data['fullname']); ?></h3>
                         <span class="inline-block mt-1 font-bold px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider bg-[#0A3370] text-white">
                             <?php echo $user_role === 'teacher' ? 'คุณครูผู้รับนิเทศ' : ($user_role === 'director' ? 'ผู้อำนวยการโรงเรียน' : 'ผู้ดูแลระบบ'); ?>
                         </span>
+                        <div class="mt-1 flex justify-center">
+                            <span id="profile-upload-status" class="hidden px-2 py-0.5 rounded text-[8px] font-extrabold animate-pulse"></span>
+                        </div>
                     </div>
                 </div>
 
@@ -467,13 +478,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                                     <label class="text-xs font-bold text-amber-700 block">📸 ภาพถ่ายประจำตัวของคุณครู (สำหรับหน้าข้อมูลและการนิเทศ)</label>
                                     
                                     <div class="space-y-1">
-                                        <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 1: อัปโหลดไฟล์ภาพโดยตรง</span>
-                                        <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                                        <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 1: อัปโหลดไฟล์ภาพโดยตรง (อัปโหลดอัตโนมัติทันทีที่เลือกไฟล์)</span>
+                                        <input type="file" id="teacher_photo_input" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
                                     </div>
                                     
                                     <div class="space-y-1 pt-1">
                                         <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 2: หรือระบุลิงก์รูปภาพ Google Drive / รูปภาพทั่วไป</span>
-                                        <input type="text" name="teacher_photo_url" value="<?php echo htmlspecialchars($teacher_data['photo_path'] ?? ''); ?>" placeholder="เช่น https://drive.google.com/file/d/... หรือลิงก์รูปภาพ" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-500 font-mono">
+                                        <input type="text" id="teacher_photo_url_input" name="teacher_photo_url" value="<?php echo htmlspecialchars($teacher_data['photo_path'] ?? ''); ?>" placeholder="เช่น https://drive.google.com/file/d/... หรือลิงก์รูปภาพ" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-500 font-mono">
                                         <p class="text-[9px] text-slate-400 leading-normal">ระบบจะทำการแปลงลิงก์แชร์ของ Google Drive ให้สามารถดึงภาพขึ้นมาแสดงผลได้โดยอัตโนมัติ</p>
                                     </div>
                                 </div>
@@ -673,6 +684,120 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
             <span class="text-[9px]">ตั้งค่า</span>
         </a>
     </div>
+
+    <!-- Client-side Interactive Photo Logic for profile -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const photoInput = document.getElementById('teacher_photo_input');
+            const photoUrlInput = document.getElementById('teacher_photo_url_input');
+            const previewImg = document.getElementById('profile-photo-preview');
+            const placeholderSpan = document.getElementById('profile-photo-placeholder');
+            const spinner = document.getElementById('profile-upload-spinner');
+            const statusBadge = document.getElementById('profile-upload-status');
+
+            function showStatus(text, isSuccess) {
+                if (!statusBadge) return;
+                statusBadge.textContent = text;
+                statusBadge.className = isSuccess 
+                    ? "px-2 py-0.5 rounded text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-150 mt-1 inline-block"
+                    : "px-2 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-150 mt-1 inline-block";
+                statusBadge.classList.remove('hidden');
+                setTimeout(() => {
+                    statusBadge.classList.add('hidden');
+                }, 4000);
+            }
+
+            // แปลงลิงก์ Google Drive ในฝั่ง Client เพื่อแสดงพรีวิวแบบ Real-time ทันที
+            function convertGDriveUrlToDirect(url) {
+                if (!url) return url;
+                if (url.indexOf('drive.google.com') !== -1) {
+                    let fileId = '';
+                    let match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    if (match1) {
+                        fileId = match1[1];
+                    } else {
+                        let match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                        if (match2) {
+                            fileId = match2[1];
+                        }
+                    }
+                    if (fileId) {
+                        return "https://lh3.googleusercontent.com/d/" + fileId;
+                    }
+                }
+                return url;
+            }
+
+            // ฟังก์ชันช่วยแสดงภาพพรีวิว
+            function updatePreview(url) {
+                if (!previewImg || !placeholderSpan) return;
+                if (url) {
+                    previewImg.src = url;
+                    previewImg.classList.remove('hidden');
+                    placeholderSpan.classList.add('hidden');
+                } else {
+                    previewImg.src = '';
+                    previewImg.classList.add('hidden');
+                    placeholderSpan.classList.remove('hidden');
+                }
+            }
+
+            // อัปโหลดไฟล์อัตโนมัติเมื่อเลือกไฟล์ (AJAX)
+            if (photoInput) {
+                photoInput.addEventListener('change', function() {
+                    if (this.files && this.files[0]) {
+                        const file = this.files[0];
+                        
+                        // 1. แสดงสถานะกำลังอัปโหลด
+                        if (spinner) spinner.style.opacity = '1';
+                        
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        
+                        fetch('upload_ajax.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (spinner) spinner.style.opacity = '0';
+                            if (data.success) {
+                                // อัปเดตลิงก์ใน Input และแสดงพรีวิวทันที
+                                if (photoUrlInput) photoUrlInput.value = data.url;
+                                updatePreview(data.url);
+                                showStatus('✓ อัปโหลดสำเร็จ', true);
+                            } else {
+                                showStatus('❌ ' + data.error, false);
+                            }
+                        })
+                        .catch(error => {
+                            if (spinner) spinner.style.opacity = '0';
+                            showStatus('❌ อัปโหลดล้มเหลว', false);
+                            console.error('Upload error:', error);
+                        });
+                    }
+                });
+            }
+
+            // สังเกตการณ์การป้อนลิงก์ เพื่อแปลงและอัปเดตพรีวิวแบบสดๆ ทันที
+            if (photoUrlInput) {
+                const handleUrlChange = function() {
+                    const rawUrl = this.value.trim();
+                    const convertedUrl = convertGDriveUrlToDirect(rawUrl);
+                    if (rawUrl !== convertedUrl) {
+                        this.value = convertedUrl;
+                    }
+                    updatePreview(convertedUrl);
+                };
+
+                photoUrlInput.addEventListener('input', handleUrlChange);
+                photoUrlInput.addEventListener('change', handleUrlChange);
+                photoUrlInput.addEventListener('paste', function() {
+                    setTimeout(() => { handleUrlChange.call(photoUrlInput); }, 50);
+                });
+            }
+        });
+    </script>
 
     <!-- Clean Footer block -->
     <footer class="py-6 mt-12 border-t border-slate-200 bg-white text-center text-[11px] text-slate-400 select-none leading-relaxed">
