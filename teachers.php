@@ -24,6 +24,7 @@ $username_field = '';
 $classroom = 'ชั้นประถมศึกษาปีที่ 1/1';
 $teaching_hours = 8;
 $work_status = 'ปกติ';
+$teacher_photo_url = '';
 
 // กรณีคลิกกดโหลดข้อมูลคุณครูมาเตรียมแก้ไข
 if ($edit_id) {
@@ -39,6 +40,7 @@ if ($edit_id) {
         $classroom = $t_data['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1';
         $teaching_hours = (int)($t_data['teaching_hours'] ?? 8);
         $work_status = $t_data['work_status'] ?? 'ปกติ';
+        $teacher_photo_url = $t_data['photo_path'] ?? '';
     }
 }
 
@@ -95,6 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
     $classroom = trim($_POST['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1');
     $teaching_hours = (int)($_POST['teaching_hours'] ?? 8);
     $work_status = trim($_POST['work_status'] ?? 'ปกติ');
+    $teacher_photo_url = trim($_POST['teacher_photo_url'] ?? '');
+    $teacher_photo_url = convert_gdrive_url_to_direct($teacher_photo_url);
 
     if (!empty($teacher_name)) {
         $school_code = $_SESSION['school_code'] ?? '31054002';
@@ -108,6 +112,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                 
                 // คำนวณรักษารูปเดิม
                 $photo_uploaded_path = $old_data['photo_path'] ?? null;
+                
+                // หากมีการระบุ URL รูปภาพโดยตรง ให้ใช้ URL นั้นนำร่วง
+                if (!empty($teacher_photo_url)) {
+                    $photo_uploaded_path = $teacher_photo_url;
+                }
 
                 if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
                     $file_tmp = $_FILES['teacher_photo']['tmp_name'];
@@ -188,6 +197,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
             $new_teacher_id = 'T-' . $school_code . '-' . str_pad($next_num, 3, '0', STR_PAD_LEFT);
             
             $photo_uploaded_path = null;
+            if (!empty($teacher_photo_url)) {
+                $photo_uploaded_path = $teacher_photo_url;
+            }
+            
             if (isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
                 $file_tmp = $_FILES['teacher_photo']['tmp_name'];
                 $file_name = $_FILES['teacher_photo']['name'];
@@ -448,12 +461,22 @@ $all_classrooms_list = $stmt_cls_drop->fetchAll();
                     <!-- Photo Upload -->
                     <div class="space-y-2 border-t border-dashed pt-4 mt-1">
                         <label class="text-xs font-bold text-amber-700 block">📸 ภาพถ่ายประจำตัวคุณครู</label>
-                        <?php if ($edit_id && !empty($t_data['photo_path']) && file_exists($t_data['photo_path'])): ?>
+                        <?php if ($edit_id && !empty($t_data['photo_path']) && is_valid_photo($t_data['photo_path'])): ?>
                             <div class="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 mb-1.5 shadow-sm">
                                 <img src="<?php echo htmlspecialchars($t_data['photo_path']); ?>" class="w-full h-full object-cover">
                             </div>
                         <?php endif; ?>
-                        <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-505 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                        
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 1: อัปโหลดไฟล์ภาพโดยตรง</span>
+                            <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-505 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                        </div>
+                        
+                        <div class="space-y-1 pt-1">
+                            <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 2: หรือระบุลิงก์รูปภาพ Google Drive / รูปภาพทั่วไป</span>
+                            <input type="text" name="teacher_photo_url" value="<?php echo htmlspecialchars($teacher_photo_url); ?>" placeholder="เช่น https://drive.google.com/file/d/... หรือลิงก์รูปภาพ" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-500 font-mono">
+                            <p class="text-[9px] text-slate-400 leading-normal">ระบบจะทำการแปลงลิงก์แชร์ของ Google Drive ให้สามารถดึงภาพขึ้นมาแสดงผลได้โดยอัตโนมัติ</p>
+                        </div>
                     </div>
 
                     <div class="space-y-1 border-t border-dashed pt-4">
@@ -524,7 +547,7 @@ $all_classrooms_list = $stmt_cls_drop->fetchAll();
                                     <td class="p-3 font-bold text-slate-900">
                                         <div class="flex items-center gap-2">
                                             <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                                                <?php if (!empty($t['photo_path']) && file_exists($t['photo_path'])): ?>
+                                                <?php if (!empty($t['photo_path']) && is_valid_photo($t['photo_path'])): ?>
                                                     <img src="<?php echo htmlspecialchars($t['photo_path']); ?>" class="w-full h-full object-cover">
                                                 <?php else: ?>
                                                     <span class="text-xs">👩‍🏫</span>

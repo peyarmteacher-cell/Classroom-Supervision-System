@@ -570,6 +570,47 @@ function upload_image_to_gdrive_if_configured($image_data, $filename, $school_co
     return $image_data;
 }
 
+/**
+ * ตรวจสอบความถูกต้องของรูปภาพคุณครู (รองรับทั้งไฟล์ในระบบและ URL ภายนอกเช่น Google Drive)
+ */
+function is_valid_photo($path) {
+    if (empty($path)) {
+        return false;
+    }
+    if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
+        return true;
+    }
+    return file_exists($path) || file_exists(__DIR__ . '/' . $path);
+}
+
+/**
+ * แปลงลิงก์แชร์ของ Google Drive ปกติให้กลายเป็นลิงก์ดึงรูปภาพโดยตรง (Direct Viewable Link)
+ */
+function convert_gdrive_url_to_direct($url) {
+    if (empty($url)) {
+        return $url;
+    }
+    
+    // แปลงหากเป็นรูปแบบ Google Drive
+    if (strpos($url, 'drive.google.com') !== false) {
+        $file_id = '';
+        
+        // รูปแบบ 1: /file/d/{id}/view?usp=sharing หรือ /file/d/{id}/preview
+        if (preg_match('/\/file\/d\/([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            $file_id = $matches[1];
+        }
+        // รูปแบบ 2: ?id={id} หรือ &id={id}
+        elseif (preg_match('/[?&]id=([a-zA-Z0-9_-]+)/', $url, $matches)) {
+            $file_id = $matches[1];
+        }
+        
+        if (!empty($file_id)) {
+            return "https://lh3.googleusercontent.com/d/" . $file_id;
+        }
+    }
+    return $url;
+}
+
 // เริ่มต้น Session สำหรับใช้งานบัญชีลงทะเบียนทั่วไป
 if (session_status() === PHP_SESSION_NONE) {
     session_start();

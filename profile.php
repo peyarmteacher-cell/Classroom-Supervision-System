@@ -169,6 +169,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                 // อัปโหลดไฟล์รูปภาพหากเป็นสิทธิ์ผู้ใช้งานกลุ่มครูผู้รับนิเทศ
                 $photo_uploaded_path = $teacher_data['photo_path'] ?? null;
                 
+                $teacher_photo_url = trim($_POST['teacher_photo_url'] ?? '');
+                if ($user_role === 'teacher' && !empty($teacher_photo_url)) {
+                    $photo_uploaded_path = convert_gdrive_url_to_direct($teacher_photo_url);
+                }
+                
                 if ($user_role === 'teacher' && isset($_FILES['teacher_photo']) && $_FILES['teacher_photo']['error'] === UPLOAD_ERR_OK) {
                     $file_tmp = $_FILES['teacher_photo']['tmp_name'];
                     $file_name = $_FILES['teacher_photo']['name'];
@@ -357,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
             <div class="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4">
                 <div class="text-center space-y-2">
                     <div class="w-24 h-24 bg-amber-100/70 border border-amber-200 text-amber-700 flex items-center justify-center text-4xl rounded-xl mx-auto overflow-hidden relative shadow-inner">
-                        <?php if ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && file_exists($teacher_data['photo_path'])): ?>
+                        <?php if ($user_role === 'teacher' && !empty($teacher_data['photo_path']) && is_valid_photo($teacher_data['photo_path'])): ?>
                             <img src="<?php echo htmlspecialchars($teacher_data['photo_path']); ?>" alt="รูปภาพประจำตัวครู" class="w-full h-full object-cover">
                         <?php else: ?>
                             <span class="text-4xl"><?php echo $user_role === 'teacher' ? '👩‍🏫' : '👑'; ?></span>
@@ -459,11 +464,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
 
                                 <!-- Photo Upload -->
                                 <div class="space-y-2 sm:col-span-2 border-t border-dashed pt-4 mt-1">
-                                    <label class="text-xs font-bold text-amber-700 block">📸 อัพโหลดรูปถ่ายประจำตัวของคุณครู (สำหรับหน้าข้อมูลและการนิเทศ)</label>
-                                    <div class="flex items-center gap-3">
+                                    <label class="text-xs font-bold text-amber-700 block">📸 ภาพถ่ายประจำตัวของคุณครู (สำหรับหน้าข้อมูลและการนิเทศ)</label>
+                                    
+                                    <div class="space-y-1">
+                                        <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 1: อัปโหลดไฟล์ภาพโดยตรง</span>
                                         <input type="file" name="teacher_photo" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[11px] file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
                                     </div>
-                                    <p class="text-[9px] text-slate-400">รองรับไฟล์รูปภาพเท่านั้น (JPG, JPEG, PNG, GIF) เพื่อให้ผู้อำนวยการโรงเรียนรู้จักหน้าคุณครูในการทำรายงานนิเทศ</p>
+                                    
+                                    <div class="space-y-1 pt-1">
+                                        <span class="text-[10px] text-slate-400 block font-bold">วิธีที่ 2: หรือระบุลิงก์รูปภาพ Google Drive / รูปภาพทั่วไป</span>
+                                        <input type="text" name="teacher_photo_url" value="<?php echo htmlspecialchars($teacher_data['photo_path'] ?? ''); ?>" placeholder="เช่น https://drive.google.com/file/d/... หรือลิงก์รูปภาพ" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-500 font-mono">
+                                        <p class="text-[9px] text-slate-400 leading-normal">ระบบจะทำการแปลงลิงก์แชร์ของ Google Drive ให้สามารถดึงภาพขึ้นมาแสดงผลได้โดยอัตโนมัติ</p>
+                                    </div>
                                 </div>
                             </div>
                         <?php endif; ?>

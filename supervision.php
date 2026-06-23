@@ -382,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
                                 <div class="flex items-start justify-between gap-3 mb-4">
                                     <div class="relative shrink-0">
                                         <div class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
-                                            <?php if (!empty($t['photo_path']) && file_exists($t['photo_path'])): ?>
+                                            <?php if (!empty($t['photo_path']) && is_valid_photo($t['photo_path'])): ?>
                                                 <img src="<?php echo htmlspecialchars($t['photo_path']); ?>" class="w-full h-full object-cover">
                                             <?php else: ?>
                                                 <span class="text-2xl">👩‍🏫</span>
@@ -522,7 +522,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             <div class="bg-indigo-50/60 border border-indigo-100 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <div class="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center shadow-xs">
-                        <?php if ($sel_teacher_data && !empty($sel_teacher_data['photo_path']) && file_exists($sel_teacher_data['photo_path'])): ?>
+                        <?php if ($sel_teacher_data && !empty($sel_teacher_data['photo_path']) && is_valid_photo($sel_teacher_data['photo_path'])): ?>
                             <img src="<?php echo htmlspecialchars($sel_teacher_data['photo_path']); ?>" class="w-full h-full object-cover">
                         <?php else: ?>
                             <span class="text-xl">👩‍🏫</span>
