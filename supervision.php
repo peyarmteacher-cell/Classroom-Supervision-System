@@ -15,9 +15,9 @@ $error_msg = '';
 $success_msg = '';
 
 $edit_id = $_GET['edit_id'] ?? null;
+$teacher_id = $_GET['teacher_id'] ?? '';
 
 // ข้อมูลหลักฟอร์มเซ็ตมาตรฐาน
-$teacher_id = '';
 $year_id = '';
 $class_name = '';
 $subject_name = '';
@@ -77,6 +77,34 @@ $dropdown_years = $stmt_years_drop->fetchAll();
 $stmt_classrooms_drop = $pdo->prepare("SELECT * FROM classrooms WHERE school_code = ? ORDER BY class_name ASC");
 $stmt_classrooms_drop->execute([$school_code]);
 $dropdown_classrooms = $stmt_classrooms_drop->fetchAll();
+
+// หากระบุคุณครูเข้ามาแล้ว โหลดค่าสถานะห้องเรียนและรายวิชาอัตโนมัติ
+if (!empty($teacher_id)) {
+    $stmt_sel_teacher = $pdo->prepare("SELECT * FROM teachers WHERE teacher_id = ? AND school_code = ?");
+    $stmt_sel_teacher->execute([$teacher_id, $school_code]);
+    $sel_teacher_data = $stmt_sel_teacher->fetch();
+    if ($sel_teacher_data && empty($edit_id)) {
+        $class_name = $sel_teacher_data['classroom'] ?? '';
+        $subject_name = str_replace('กลุ่มสาระการเรียนรู้', '', $sel_teacher_data['subject_group'] ?? '');
+    }
+}
+
+// ตรวจสอบเครื่องหมายถูกสีเขียวหรือนาฬิกาประเมินล่าช้า
+$teacher_evaluation_status = [];
+try {
+    $stmt_status_check = $pdo->prepare("SELECT teacher_id, status FROM supervisions WHERE school_code = ?");
+    $stmt_status_check->execute([$school_code]);
+    $status_records = $stmt_status_check->fetchAll();
+    foreach ($status_records as $sr) {
+        if ($sr['status'] === 'submitted') {
+            $teacher_evaluation_status[$sr['teacher_id']] = 'submitted';
+        } elseif ($sr['status'] === 'draft' && !isset($teacher_evaluation_status[$sr['teacher_id']])) {
+            $teacher_evaluation_status[$sr['teacher_id']] = 'draft';
+        }
+    }
+} catch (Exception $e) {
+    //
+}
 
 // โหลดข้อคำถามนิเทศกลุ่มกระทรวง 5 หมวดหลักจากดาต้าเบส
 $evaluation_items = $pdo->query("SELECT * FROM evaluation_items ORDER BY CAST(item_id AS UNSIGNED) ASC")->fetchAll();
@@ -292,16 +320,242 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             </div>
         <?php endif; ?>
 
-        <!-- Evaluation Form container -->
-        <form method="POST" enctype="multipart/form-data" class="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-8">
-            <input type="hidden" name="action_save_supervision" value="1">
-
-            <!-- Phase 1: General Header details metadata -->
-            <div class="space-y-4">
-                <div class="border-b pb-3">
-                    <h2 class="text-[#0A3370] font-extrabold text-base">ส่วนที่ 1: ข้อมูลปฐมภูมิประกอบการนิเทศชั้นเรียน</h2>
-                    <p class="text-[11px] text-slate-400 mt-0.5">กรุณาเลือกชื่อครูวิทยฐานะ และระบุรายละเอียดคาบวิชาวิชาการให้ถูกต้องเพื่อใช้สืบค้นจับคู่ในระยะยาว</p>
+        <?php if (empty($teacher_id)): ?>
+            <!-- STEP 1: CHOOSE TEACHER SCREEN -->
+            <div class="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
+                
+                <!-- Header section of teacher selection -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+                    <div>
+                        <h2 class="text-base font-extrabold text-[#0A3370] tracking-tight flex items-center gap-2">
+                            🔎 เลือกคุณครูเพื่อเริ่มต้นการบันทึกการนิเทศ
+                        </h2>
+                        <p class="text-[11px] text-slate-400 mt-0.5">
+                            กรุณาคลิกเลือกชื่อคุณครูจากด้านล่างเพื่อเริ่มการประเมินวิธีกระบวนการสอนในชั้นเรียนจริง
+                        </p>
+                    </div>
+                    
+                    <!-- Filter buttons (ประถม / มัธยม) -->
+                    <div class="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200/60 font-semibold text-xs text-slate-650 flex-wrap">
+                        <button type="button" onclick="filterLevel('all')" id="tab-all" class="px-4 py-2 bg-[#0A3370] text-white rounded-lg shadow-2xs font-extrabold transition-all cursor-pointer">
+                            ทั้งหมด (<?php echo count($dropdown_teachers); ?>)
+                        </button>
+                        <button type="button" onclick="filterLevel('prathom')" id="tab-prathom" class="px-3 py-2 hover:bg-slate-200 text-slate-700 rounded-lg transition-all cursor-pointer">
+                            ระดับประถม & ปฐมวัย
+                        </button>
+                        <button type="button" onclick="filterLevel('mattayom')" id="tab-mattayom" class="px-3 py-2 hover:bg-slate-200 text-slate-700 rounded-lg transition-all cursor-pointer">
+                            ระดับมัธยมศึกษา
+                        </button>
+                    </div>
                 </div>
+
+                <!-- Search input bar -->
+                <div class="relative max-w-sm">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        🔎
+                    </span>
+                    <input type="text" id="teacher-search-input" onkeyup="searchTeachers()" placeholder="พิมพ์ ค้นหาชื่อคุณครู หรือวิชาเอกกลุ่มสาระ..." 
+                    class="w-full pl-9 pr-4 py-2 bg-slate-50 hover:bg-slate-100/50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-blue-900 focus:bg-white transition-all font-medium">
+                </div>
+
+                <!-- Teachers List Container Dynamic -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in" id="teachers-grid">
+                    <?php foreach ($dropdown_teachers as $t): 
+                        // Tier level check
+                        $cls_tier = $t['classroom'] ?? '';
+                        $level = 'prathom';
+                        if (strpos($cls_tier, 'มัธยม') !== false || strpos($cls_tier, 'ม.') !== false || strpos($cls_tier, 'Secondary') !== false) {
+                            $level = 'mattayom';
+                        }
+                        
+                        $sh_subject = str_replace('กลุ่มสาระการเรียนรู้', '', $t['subject_group'] ?? '');
+                        $st_eval = $teacher_evaluation_status[$t['teacher_id']] ?? null;
+                        $wk_status = $t['work_status'] ?? 'ปกติ';
+                    ?>
+                        <div class="bg-slate-50/40 border border-slate-200 p-5 rounded-2xl flex flex-col justify-between hover:scale-[1.01] transition-all duration-200 hover:border-blue-900/50 hover:bg-white teacher-card shadow-2xs" 
+                             data-level="<?php echo $level; ?>"
+                             data-search-name="<?php echo htmlspecialchars(mb_strtolower($t['teacher_name'])); ?>"
+                             data-search-subject="<?php echo htmlspecialchars(mb_strtolower($sh_subject)); ?>">
+                            
+                            <div>
+                                <!-- Image & status markers -->
+                                <div class="flex items-start justify-between gap-3 mb-4">
+                                    <div class="relative shrink-0">
+                                        <div class="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                            <?php if (!empty($t['photo_path']) && file_exists($t['photo_path'])): ?>
+                                                <img src="<?php echo htmlspecialchars($t['photo_path']); ?>" class="w-full h-full object-cover">
+                                            <?php else: ?>
+                                                <span class="text-2xl">👩‍🏫</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php if ($st_eval === 'submitted'): ?>
+                                            <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-xs" title="บันทึกประเมินนิเทศเรียบร้อยแล้ว">✓</div>
+                                        <?php elseif ($st_eval === 'draft'): ?>
+                                            <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-white shadow-xs" title="กำลังบันทึกร่างค้างอยู่">⏳</div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="text-right flex flex-col items-end gap-1 flex-1">
+                                        <?php if ($st_eval === 'submitted'): ?>
+                                            <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-150 rounded-md text-[9px] font-extrabold flex items-center gap-0.5">✓ ประเมินแล้ว</span>
+                                        <?php elseif ($st_eval === 'draft'): ?>
+                                            <span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-150 rounded-md text-[9px] font-extrabold flex items-center gap-0.5">⏳ แบบร่างคา้าง</span>
+                                        <?php else: ?>
+                                            <span class="px-2 py-0.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-md text-[9px] font-bold">รอนิเทศ</span>
+                                        <?php endif; ?>
+
+                                        <?php if ($wk_status !== 'ปกติ'): ?>
+                                            <span class="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-150 rounded-md text-[9px] font-extrabold animation-pulse mt-1">🤒 <?php echo htmlspecialchars($wk_status); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-1">
+                                    <h3 class="text-slate-900 font-extrabold text-xs tracking-tight">
+                                        คุณครู<?php echo htmlspecialchars($t['teacher_name']); ?>
+                                    </h3>
+                                    <p class="text-[10px] text-slate-500 font-bold">
+                                        <?php echo htmlspecialchars($t['position']); ?>
+                                    </p>
+                                    <div class="text-[9.5px] text-slate-400 font-semibold mt-1">
+                                        🏫 ประจำห้อง: <?php echo htmlspecialchars($t['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1'); ?>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-1 mt-3">
+                                    <span class="bg-amber-100/70 text-amber-900 border border-amber-200/50 px-2 py-0.5 rounded-lg text-[9px] font-bold">
+                                        <?php echo htmlspecialchars($sh_subject); ?>
+                                    </span>
+                                    <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold">
+                                        📅 <?php echo (int)($t['teaching_hours'] ?? 8); ?> คาบ/สัปดาห์
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-t border-dashed border-slate-200/85">
+                                <?php if ($wk_status === 'ปกติ'): ?>
+                                    <?php if ($st_eval === 'draft'): ?>
+                                        <a href="supervision.php?teacher_id=<?php echo urlencode($t['teacher_id']); ?>" 
+                                           class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold py-2 px-3 rounded-xl text-[11px] text-center flex items-center justify-center gap-1 transition shadow-xs">
+                                            📝 เขียนต่อ (แบบร่างค้าง)
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="supervision.php?teacher_id=<?php echo urlencode($t['teacher_id']); ?>" 
+                                           class="w-full bg-[#0A3370] hover:bg-blue-900 text-white font-extrabold py-2 px-3 rounded-xl text-[11px] text-center flex items-center justify-center gap-1 transition shadow-xs">
+                                            📋 บันทึกประเมินนิเทศ
+                                        </a>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <button type="button" disabled class="w-full bg-slate-100 text-slate-400 font-extrabold py-2 px-3 rounded-xl text-[10.5px] cursor-not-allowed text-center">
+                                        🚫 งดการเข้าประเมินนิเทศ (<?php echo htmlspecialchars($wk_status); ?>)
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <!-- Floating bottom-right action trigger -->
+                <div class="fixed bottom-6 right-6 z-40 select-none">
+                    <a href="teachers.php" class="bg-[#FFC107] hover:bg-amber-500 text-slate-900 font-extrabold px-5 py-3 rounded-full shadow-lg justify-center items-center gap-1.5 flex text-xs transition border-none decoration-transparent">
+                        <span class="text-sm font-black">+</span> 
+                        <span>ลงทะเบียนครูท่านอื่น</span>
+                    </a>
+                </div>
+
+            </div>
+
+            <script>
+                let currentLevelFilter = 'all';
+
+                function filterLevel(level) {
+                    currentLevelFilter = level;
+                    
+                    const tabAll = document.getElementById('tab-all');
+                    const tabPrathom = document.getElementById('tab-prathom');
+                    const tabMattayom = document.getElementById('tab-mattayom');
+
+                    [tabAll, tabPrathom, tabMattayom].forEach(tab => {
+                        if (tab) {
+                            tab.classList.remove('bg-[#0A3370]', 'text-white', 'shadow-2xs', 'font-extrabold');
+                            tab.classList.add('hover:bg-slate-200', 'text-slate-700');
+                        }
+                    });
+
+                    const clickedTab = document.getElementById('tab-' + level);
+                    if (clickedTab) {
+                        clickedTab.classList.add('bg-[#0A3370]', 'text-white', 'shadow-2xs', 'font-extrabold');
+                        clickedTab.classList.remove('hover:bg-slate-200', 'text-slate-700');
+                    }
+
+                    applyFilters();
+                }
+
+                function searchTeachers() {
+                    applyFilters();
+                }
+
+                function applyFilters() {
+                    const searchQ = document.getElementById('teacher-search-input').value.toLowerCase().trim();
+                    const cards = document.querySelectorAll('.teacher-card');
+
+                    cards.forEach(card => {
+                        const level = card.dataset.level;
+                        const name = card.dataset.searchName;
+                        const subject = card.dataset.searchSubject;
+
+                        const matchesLevel = (currentLevelFilter === 'all' || level === currentLevelFilter);
+                        const matchesSearch = (!searchQ || name.includes(searchQ) || subject.includes(searchQ));
+
+                        if (matchesLevel && matchesSearch) {
+                            card.classList.remove('hidden');
+                        } else {
+                            card.classList.add('hidden');
+                        }
+                    });
+                }
+            </script>
+
+        <?php else: ?>
+            <!-- STEP 2: EVALUATION FORM SCREEN -->
+            
+            <div class="bg-indigo-50/60 border border-indigo-100 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center shadow-xs">
+                        <?php if ($sel_teacher_data && !empty($sel_teacher_data['photo_path']) && file_exists($sel_teacher_data['photo_path'])): ?>
+                            <img src="<?php echo htmlspecialchars($sel_teacher_data['photo_path']); ?>" class="w-full h-full object-cover">
+                        <?php else: ?>
+                            <span class="text-xl">👩‍🏫</span>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide">คุณครูผู้รับสิทธิ์การประเมินนิเทศปัจจุบัน</div>
+                        <div class="text-xs font-extrabold text-blue-950 flex items-center gap-1.5 flex-wrap">
+                            <span class="text-sm font-black">คุณครู<?php echo htmlspecialchars($sel_teacher_data['teacher_name'] ?? ''); ?></span>
+                            <span class="px-2 py-0.5 bg-indigo-100 text-[#0A3370] rounded font-extrabold text-[10px]"><?php echo htmlspecialchars($sel_teacher_data['position'] ?? ''); ?></span>
+                        </div>
+                        <div class="text-[10px] text-[#0A3370] font-bold mt-0.5">
+                            🏫 ประจำชั้นเรียน: <?php echo htmlspecialchars($sel_teacher_data['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1'); ?>
+                            | กลุ่มเอกสาระ: <?php echo htmlspecialchars($sel_teacher_data['subject_group'] ?? ''); ?>
+                        </div>
+                    </div>
+                </div>
+                <a href="supervision.php" class="bg-white hover:bg-slate-50 text-slate-700 p-2 px-4 rounded-xl text-xs font-bold border border-slate-200/80 transition flex items-center gap-1 shrink-0 shadow-2xs">
+                    🔄 เปลี่ยนตัวคุณครูผู้สอน
+                </a>
+            </div>
+
+            <!-- Evaluation Form container -->
+            <form method="POST" enctype="multipart/form-data" class="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-8">
+                <input type="hidden" name="action_save_supervision" value="1">
+                <input type="hidden" name="teacher_id" value="<?php echo htmlspecialchars($teacher_id); ?>">
+
+                <!-- Phase 1: General Header details metadata -->
+                <div class="space-y-4">
+                    <div class="border-b pb-3">
+                        <h2 class="text-[#0A3370] font-extrabold text-base">ส่วนที่ 1: ข้อมูลปฐมภูมิประกอบการนิเทศชั้นเรียน</h2>
+                        <p class="text-[11px] text-slate-400 mt-0.5">กรุณาระบุรายละเอียดคาบเรียนวิชาวิชาการให้ถูกต้องตามจริง</p>
+                    </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-medium">
                     <!-- Teacher select drop down -->
@@ -534,6 +788,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_supervisi
             </div>
 
         </form>
+
+    <?php endif; ?>
 
     </main>
 

@@ -160,8 +160,21 @@ try {
         if (!$check_col) {
             $pdo->exec("ALTER TABLE `teachers` ADD COLUMN `photo_path` VARCHAR(255) DEFAULT NULL;");
         }
-    } catch (Exception $col_err) {
-        // เงียบไว้ในกรณีที่ฐานข้อมูลจำกัดคำสั่ง ALTER
+    } catch (Exception $col_err) {}
+
+    // คอลัมน์เพิ่มเติมสำหรับการแสดงผลหน้าเริ่มประเมินนิเทศ
+    $cols_to_check = [
+        'classroom' => "VARCHAR(100) DEFAULT 'ชั้นประถมศึกษาปีที่ 1/1'",
+        'teaching_hours' => "INT DEFAULT 8",
+        'work_status' => "VARCHAR(50) DEFAULT 'ปกติ'"
+    ];
+    foreach ($cols_to_check as $col_name => $col_definition) {
+        try {
+            $check_col = $pdo->query("SHOW COLUMNS FROM `teachers` LIKE '{$col_name}'")->fetch();
+            if (!$check_col) {
+                $pdo->exec("ALTER TABLE `teachers` ADD COLUMN `{$col_name}` {$col_definition};");
+            }
+        } catch (Exception $col_err) {}
     }
 
     // สร้างโฟลเดอร์จัดเก็บภาพคุณครูและภาพนิเทศเพื่อความพร้อมในการทำงานจริง

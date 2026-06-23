@@ -21,6 +21,9 @@ $position = 'ครู คศ.1';
 $subject_group = 'กลุ่มสาระการเรียนรู้ภาษาไทย';
 $phone = '';
 $username_field = '';
+$classroom = 'ชั้นประถมศึกษาปีที่ 1/1';
+$teaching_hours = 8;
+$work_status = 'ปกติ';
 
 // กรณีคลิกกดโหลดข้อมูลคุณครูมาเตรียมแก้ไข
 if ($edit_id) {
@@ -33,6 +36,9 @@ if ($edit_id) {
         $subject_group = $t_data['subject_group'];
         $phone = $t_data['phone'];
         $username_field = $t_data['username'] ?? '';
+        $classroom = $t_data['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1';
+        $teaching_hours = (int)($t_data['teaching_hours'] ?? 8);
+        $work_status = $t_data['work_status'] ?? 'ปกติ';
     }
 }
 
@@ -86,6 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
     $phone = trim($_POST['phone'] ?? '');
     $username_field = trim($_POST['username_field'] ?? '');
     $password_field = $_POST['password_field'] ?? '';
+    $classroom = trim($_POST['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1');
+    $teaching_hours = (int)($_POST['teaching_hours'] ?? 8);
+    $work_status = trim($_POST['work_status'] ?? 'ปกติ');
 
     if (!empty($teacher_name)) {
         $school_code = $_SESSION['school_code'] ?? '31054002';
@@ -135,8 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                         $pdo->beginTransaction();
                         try {
                             // อัพเดตตารางคุณครูผู้สอน
-                            $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ?, photo_path = ? WHERE teacher_id = ? AND school_code = ?");
-                            $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $edit_id, $school_code]);
+                            $stmt = $pdo->prepare("UPDATE teachers SET teacher_name = ?, position = ?, subject_group = ?, phone = ?, username = ?, photo_path = ?, classroom = ?, teaching_hours = ?, work_status = ? WHERE teacher_id = ? AND school_code = ?");
+                            $stmt->execute([$teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $classroom, $teaching_hours, $work_status, $edit_id, $school_code]);
                             
                             // อัปเดตตาราง users
                             if (!empty($password_field)) {
@@ -216,8 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                     $pdo->beginTransaction();
                     try {
                         // บันทึกลงตารางครูผู้สอน
-                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username, photo_path, school_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $school_code]);
+                        $stmt = $pdo->prepare("INSERT INTO teachers (teacher_id, teacher_name, position, subject_group, phone, username, photo_path, classroom, teaching_hours, work_status, school_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        $stmt->execute([$new_teacher_id, $teacher_name, $position, $subject_group, $phone, $username_field, $photo_uploaded_path, $classroom, $teaching_hours, $work_status, $school_code]);
 
                         // สร้างคู่ไอดีบัญชีล็อกอินในระบบ
                         $hashed_pass = password_hash($input_password, PASSWORD_DEFAULT);
@@ -247,9 +256,15 @@ if (isset($_GET['success_msg'])) {
 }
 
 // โหลดลิสต์คุณครูทั้งหมดสังกัดปัจจุบัน
+$school_code_current = $_SESSION['school_code'] ?? '31054002';
 $stmt_get_all = $pdo->prepare("SELECT * FROM teachers WHERE school_code = ? ORDER BY teacher_id ASC");
-$stmt_get_all->execute([$_SESSION['school_code'] ?? '31054002']);
+$stmt_get_all->execute([$school_code_current]);
 $all_teachers = $stmt_get_all->fetchAll();
+
+// โหลดระดับชั้นเรียนทั้งหมดในโรงเรียนเพื่อรองรับการจัดทำตัวเลือก
+$stmt_cls_drop = $pdo->prepare("SELECT * FROM classrooms WHERE school_code = ? ORDER BY class_name ASC");
+$stmt_cls_drop->execute([$school_code_current]);
+$all_classrooms_list = $stmt_cls_drop->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -396,6 +411,40 @@ $all_teachers = $stmt_get_all->fetchAll();
                         <input type="text" name="phone" value="<?php echo htmlspecialchars($phone); ?>" placeholder="เช่น 081-XXXXXXX" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-mono">
                     </div>
 
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-500">ห้องเรียนประจำตัวประจำหลัก *</label>
+                        <select name="classroom" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer outline-none">
+                            <option value="">-- เลือกห้องเรียนประจำหลัก --</option>
+                            <?php foreach ($all_classrooms_list as $cls_item): ?>
+                                <option value="<?php echo htmlspecialchars($cls_item['class_name']); ?>" <?php if ($classroom === $cls_item['class_name']) echo 'selected'; ?>>
+                                    <?php echo htmlspecialchars($cls_item['class_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <?php if (empty($all_classrooms_list)): ?>
+                                <option value="ชั้นประถมศึกษาปีที่ 1/1" <?php if ($classroom === 'ชั้นประถมศึกษาปีที่ 1/1') echo 'selected'; ?>>ชั้นประถมศึกษาปีที่ 1/1</option>
+                                <option value="ชั้นประถมศึกษาปีที่ 2/2" <?php if ($classroom === 'ชั้นประถมศึกษาปีที่ 2/2') echo 'selected'; ?>>ชั้นประถมศึกษาปีที่ 2/2</option>
+                                <option value="ชั้นประถมศึกษาปีที่ 4/1" <?php if ($classroom === 'ชั้นประถมศึกษาปีที่ 4/1') echo 'selected'; ?>>ชั้นประถมศึกษาปีที่ 4/1</option>
+                                <option value="ชั้นประถมศึกษาปีที่ 6/3" <?php if ($classroom === 'ชั้นประถมศึกษาปีที่ 6/3') echo 'selected'; ?>>ชั้นประถมศึกษาปีที่ 6/3</option>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-500">จำนวนคาบสอนต่อสัปดาห์ *</label>
+                        <input type="number" name="teaching_hours" required value="<?php echo htmlspecialchars($teaching_hours); ?>" min="1" max="50" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="text-xs font-bold text-slate-500">สถานะปฏิบัติราชการขณะนี้ *</label>
+                        <select name="work_status" required class="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs cursor-pointer outline-none font-bold">
+                            <option value="ปกติ" <?php if ($work_status === 'ปกติ') echo 'selected'; ?>>ปกติ (นิเทศการสอนได้)</option>
+                            <option value="ลาป่วย" <?php if ($work_status === 'ลาป่วย') echo 'selected'; ?>>🤒 ลาป่วย (งดการนิเทศ)</option>
+                            <option value="ลากิจ" <?php if ($work_status === 'ลากิจ') echo 'selected'; ?>>ลากิจ (งดการนิเทศ)</option>
+                            <option value="ลาพักผ่อน" <?php if ($work_status === 'ลาพักผ่อน') echo 'selected'; ?>>ลาพักผ่อน (งดการนิเทศ)</option>
+                            <option value="ไปราชการ" <?php if ($work_status === 'ไปราชการ') echo 'selected'; ?>>ไปราชการ (งดการนิเทศ)</option>
+                        </select>
+                    </div>
+
                     <!-- Photo Upload -->
                     <div class="space-y-2 border-t border-dashed pt-4 mt-1">
                         <label class="text-xs font-bold text-amber-700 block">📸 ภาพถ่ายประจำตัวคุณครู</label>
@@ -461,10 +510,10 @@ $all_teachers = $stmt_get_all->fetchAll();
                             <tr>
                                 <th class="p-3">รหัสคุณครู</th>
                                 <th class="p-3">ชื่อ-นามสกุล</th>
-                                <th class="p-3">ตำแหน่ง / วิทยฐานะ</th>
-                                <th class="p-3">กลุ่มสาระการเรียนรู้</th>
+                                <th class="p-3">ตำแหน่ง / ระดับชั้นหลัก</th>
+                                <th class="p-3">กลุ่มสาระ / คาบสอน</th>
                                 <th class="p-3">ชื่อล็อกอินผู้ใช้งาน</th>
-                                <th class="p-3">เบอร์ติดต่อ</th>
+                                <th class="p-3 text-center">สถานะ</th>
                                 <th class="p-3 text-center">ปฏิบัติการ</th>
                             </tr>
                         </thead>
@@ -484,10 +533,22 @@ $all_teachers = $stmt_get_all->fetchAll();
                                             <span><?php echo htmlspecialchars($t['teacher_name']); ?></span>
                                         </div>
                                     </td>
-                                    <td class="p-3 text-slate-600"><?php echo htmlspecialchars($t['position']); ?></td>
-                                    <td class="p-3 text-slate-550 font-medium"><?php echo htmlspecialchars($t['subject_group']); ?></td>
-                                    <td class="p-3 font-mono font-extrabold text-amber-600 bg-amber-50/20 px-1.5 py-0.5 rounded text-[10px] inline-block mt-3 ml-2 border border-amber-100/50"><?php echo htmlspecialchars($t['username']); ?></td>
-                                    <td class="p-3 font-mono text-slate-500"><?php echo htmlspecialchars($t['phone'] ?: '-'); ?></td>
+                                    <td class="p-3 text-slate-600">
+                                        <div class="font-bold text-slate-700"><?php echo htmlspecialchars($t['position']); ?></div>
+                                        <div class="text-[10px] text-[#0A3370] font-bold">🏫 <?php echo htmlspecialchars($t['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1'); ?></div>
+                                    </td>
+                                    <td class="p-3 text-slate-550 font-medium">
+                                        <div><?php echo htmlspecialchars($t['subject_group']); ?></div>
+                                        <div class="text-[10px] text-indigo-700 font-bold font-mono">📅 <?php echo (int)($t['teaching_hours'] ?? 8); ?> คาบ/สัปดาห์</div>
+                                    </td>
+                                    <td class="p-3"><span class="font-mono font-extrabold text-amber-600 bg-amber-50/20 px-1.5 py-0.5 rounded text-[10px] border border-amber-100/50"><?php echo htmlspecialchars($t['username']); ?></span></td>
+                                    <td class="p-3 text-center">
+                                        <?php if (($t['work_status'] ?? 'ปกติ') === 'ปกติ'): ?>
+                                            <span class="p-1 px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-150 rounded-full text-[10px] font-bold">ปกติ</span>
+                                        <?php else: ?>
+                                            <span class="p-1 px-2.5 bg-rose-50 text-rose-700 border border-rose-150 rounded-full text-[10px] font-bold">🤒 <?php echo htmlspecialchars($t['work_status']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="p-3 text-center">
                                         <div class="flex justify-center gap-1.5">
                                             <a href="teachers.php?edit_id=<?php echo urlencode($t['teacher_id']); ?>" class="bg-amber-50 border border-amber-200 text-amber-700 font-bold py-1 px-2 rounded-md hover:bg-amber-100" title="แก้ไข">แก้ไข</a>
