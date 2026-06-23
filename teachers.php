@@ -559,30 +559,78 @@ $all_classrooms_list = $stmt_cls_drop->fetchAll();
                                         // 1. แสดงสถานะกำลังอัปโหลด
                                         spinner.style.opacity = '1';
                                         
-                                        const formData = new FormData();
-                                        formData.append('file', file);
+                                        // ทำการย่อขนาดไฟล์ภาพและแปลงเป็น Base64 บนอุปกรณ์เพื่อความเสถียรสูงสุด
+                                        const reader = new FileReader();
+                                        reader.onload = function(e) {
+                                            const img = new Image();
+                                            img.onload = function() {
+                                                const MAX_WIDTH = 800;
+                                                const MAX_HEIGHT = 800;
+                                                let width = img.width;
+                                                let height = img.height;
+                                                
+                                                if (width > height) {
+                                                     if (width > MAX_WIDTH) {
+                                                         height *= MAX_WIDTH / width;
+                                                         width = MAX_WIDTH;
+                                                     }
+                                                } else {
+                                                     if (height > MAX_HEIGHT) {
+                                                         width *= MAX_HEIGHT / height;
+                                                         height = MAX_HEIGHT;
+                                                     }
+                                                }
+                                                
+                                                const canvas = document.createElement('canvas');
+                                                canvas.width = width;
+                                                canvas.height = height;
+                                                
+                                                const ctx = canvas.getContext('2d');
+                                                ctx.drawImage(img, 0, 0, width, height);
+                                                
+                                                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                                                
+                                                const formData = new FormData();
+                                                formData.append('image_base64', compressedBase64);
+                                                
+                                                sendUploadRequest(formData);
+                                            };
+                                            img.onerror = function() {
+                                                const formData = new FormData();
+                                                formData.append('file', file);
+                                                sendUploadRequest(formData);
+                                            };
+                                            img.src = e.target.result;
+                                        };
+                                        reader.onerror = function() {
+                                            const formData = new FormData();
+                                            formData.append('file', file);
+                                            sendUploadRequest(formData);
+                                        };
+                                        reader.readAsDataURL(file);
                                         
-                                        fetch('upload_ajax.php', {
-                                            method: 'POST',
-                                            body: formData
-                                        })
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            spinner.style.opacity = '0';
-                                            if (data.success) {
-                                                // อัปเดตลิงก์ใน Input และแสดงพรีวิวทันที
-                                                photoUrlInput.value = data.url;
-                                                updatePreview(data.url);
-                                                showStatus('✓ อัปโหลดสำเร็จ', true);
-                                            } else {
-                                                showStatus('❌ ' + data.error, false);
-                                            }
-                                        })
-                                        .catch(error => {
-                                            spinner.style.opacity = '0';
-                                            showStatus('❌ อัปโหลดล้มเหลว', false);
-                                            console.error('Upload error:', error);
-                                        });
+                                        function sendUploadRequest(fd) {
+                                            fetch('upload_ajax.php', {
+                                                method: 'POST',
+                                                body: fd
+                                            })
+                                            .then(response => response.json())
+                                            .then(data => {
+                                                spinner.style.opacity = '0';
+                                                if (data.success) {
+                                                    photoUrlInput.value = data.url;
+                                                    updatePreview(data.url);
+                                                    showStatus('✓ อัปโหลดสำเร็จ', true);
+                                                } else {
+                                                    showStatus('❌ ' + data.error, false);
+                                                }
+                                            })
+                                            .catch(error => {
+                                                spinner.style.opacity = '0';
+                                                showStatus('❌ อัปโหลดล้มเหลว', false);
+                                                console.error('Upload error:', error);
+                                            });
+                                        }
                                     }
                                 });
                             }
