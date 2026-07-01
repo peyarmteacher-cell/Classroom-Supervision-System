@@ -191,7 +191,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_profile
                             $gdrive_url = upload_image_to_gdrive_if_configured($dest_path, $new_file_name, $school_code, $pdo);
                             $photo_uploaded_path = $gdrive_url ?: $dest_path;
                         } else {
-                            $error_msg = 'เกิดความผิดพลาดระหว่างเซฟไฟล์รูปภาพลงเซิร์ฟเวอร์โรงเรียน';
+                            // FALLBACK: หากเขียนรูปภาพลงเครื่องเซิร์ฟเวอร์ไม่ได้ ให้แปลงรูปจาก tmp เป็น base64 แล้วเซฟลงฐานข้อมูลตรง
+                            $raw_content = @file_get_contents($file_tmp);
+                            if ($raw_content !== false) {
+                                $mime_type = @mime_content_type($file_tmp) ?: 'image/jpeg';
+                                $photo_uploaded_path = 'data:' . $mime_type . ';base64,' . base64_encode($raw_content);
+                            } else {
+                                $error_msg = 'เกิดความผิดพลาดระหว่างเซฟไฟล์รูปภาพลงเซิร์ฟเวอร์โรงเรียน (ไม่พบไฟล์ชั่วคราว)';
+                            }
                         }
                     }
                 }

@@ -130,6 +130,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                             // อัพโหลดเข้ากูเกิลไดรฟ์ของระบบโรงเรียนถ้ามีตั้งค่าเชื่อมต่อ
                             $gdrive_url = upload_image_to_gdrive_if_configured($dest_path, $new_file_name, $school_code, $pdo);
                             $photo_uploaded_path = $gdrive_url ?: $dest_path;
+                        } else {
+                            // FALLBACK: แปลงไฟล์ดิสก์ไม่ผ่าน ให้ใช้ Base64 ส่งตรงเข้าฐานข้อมูล
+                            $raw_content = @file_get_contents($file_tmp);
+                            if ($raw_content !== false) {
+                                $mime_type = @mime_content_type($file_tmp) ?: 'image/jpeg';
+                                $photo_uploaded_path = 'data:' . $mime_type . ';base64,' . base64_encode($raw_content);
+                            }
                         }
                     }
                 }
@@ -213,6 +220,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_save_teacher']
                         // อัพโหลดเข้ากูเกิลไดรฟ์ของระบบโรงเรียนถ้ามีตั้งค่าเชื่อมต่อ
                         $gdrive_url = upload_image_to_gdrive_if_configured($dest_path, $new_file_name, $school_code, $pdo);
                         $photo_uploaded_path = $gdrive_url ?: $dest_path;
+                    } else {
+                        // FALLBACK: แปลงไฟล์ดิสก์ไม่ผ่าน ให้ใช้ Base64 ส่งตรงเข้าฐานข้อมูล
+                        $raw_content = @file_get_contents($file_tmp);
+                        if ($raw_content !== false) {
+                            $mime_type = @mime_content_type($file_tmp) ?: 'image/jpeg';
+                            $photo_uploaded_path = 'data:' . $mime_type . ';base64,' . base64_encode($raw_content);
+                        }
                     }
                 }
             }
