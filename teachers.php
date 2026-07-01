@@ -325,7 +325,7 @@ $all_classrooms_list = $stmt_cls_drop->fetchAll();
     <header class="glass-header text-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 py-4.5 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
-                <img src="/src/assets/images/pwa_app_icon.jpg" alt="Logo" class="w-12 h-12 rounded-xl object-cover border border-white/20 shadow-md" referrerPolicy="no-referrer">
+                <img src="<?php echo get_system_logo_url(); ?>" alt="Logo" class="w-12 h-12 rounded-xl object-cover border border-white/20 shadow-md" referrerPolicy="no-referrer">
                 <div>
                     <h1 class="text-base sm:text-lg font-extrabold tracking-wide text-white leading-snug">
                         ระบบนิเทศการจัดการเรียนการสอน

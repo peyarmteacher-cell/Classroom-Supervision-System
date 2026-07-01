@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
     <div id="app_splash" class="fixed inset-0 bg-gradient-to-tr from-[#1565C0] to-[#0D47A1] z-50 flex flex-col items-center justify-center text-white transition-all duration-700 ease-out">
         <div class="text-center space-y-4 animate-bounce-slow">
             <div class="relative w-28 h-28 bg-white/10 backdrop-blur-md p-1.5 rounded-[32px] shadow-2xl mx-auto flex items-center justify-center border border-white/20 animate-pulse">
-                <img src="/src/assets/images/pwa_app_icon.jpg" alt="School Logo" class="w-full h-full object-cover rounded-[24px]" referrerPolicy="no-referrer">
+                <img src="<?php echo get_system_logo_url(); ?>" alt="School Logo" class="w-full h-full object-cover rounded-[24px]" referrerPolicy="no-referrer">
             </div>
             <div class="space-y-1.5 px-6">
                 <h2 class="text-2xl font-extrabold tracking-tight">ระบบนิเทศชั้นเรียน</h2>
@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_login'])) {
         <!-- Header application logo -->
         <div class="text-center space-y-3">
             <div class="w-20 h-20 bg-gradient-to-tr from-[#1565C0] to-[#0D47A1] mx-auto rounded-[24px] flex items-center justify-center text-white font-extrabold text-3xl shadow-lg border-b-4 border-[#FFC107]">
-                <img src="/src/assets/images/pwa_app_icon.jpg" class="w-full h-full object-cover rounded-[20px]" alt="School Crest" referrerPolicy="no-referrer">
+                <img src="<?php echo get_system_logo_url(); ?>" class="w-full h-full object-cover rounded-[20px]" alt="School Crest" referrerPolicy="no-referrer">
             </div>
             <div>
                 <h1 class="text-lg sm:text-xl font-extrabold text-[#1565C0] tracking-tight leading-snug">ระบบนิเทศชั้นเรียนออนไลน์</h1>

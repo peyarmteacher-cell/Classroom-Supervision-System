@@ -76,6 +76,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_super_a
     }
 }
 
+// การจัดการอัปโหลดโลโก้ระบบและ PWA App Icon โดย Super Admin
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_upload_pwa_logo'])) {
+    if (isset($_FILES['pwa_logo_file']) && $_FILES['pwa_logo_file']['error'] === UPLOAD_ERR_OK) {
+        $file_tmp = $_FILES['pwa_logo_file']['tmp_name'];
+        $file_name = $_FILES['pwa_logo_file']['name'];
+        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+        $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+        
+        if (!in_array($file_ext, $allowed_exts)) {
+            $error_msg = "อนุญาตเฉพาะไฟล์รูปภาพสกุล JPG, JPEG, PNG หรือ GIF เท่านั้น";
+        } else {
+            $dest_dir = __DIR__ . '/src/assets/images';
+            if (!is_dir($dest_dir)) {
+                @mkdir($dest_dir, 0755, true);
+            }
+            $dest_path = $dest_dir . '/pwa_app_icon.jpg';
+            
+            // ใช้ GD ในการแปลงและจัดเก็บรูปภาพเป็น JPG ที่มีคุณภาพสูงและปรับขนาดเป็น 512x512 พิกเซล เพื่อความเหมาะสมเป็น PWA Icon และโลโก้
+            $src_img = null;
+            if ($file_ext === 'jpg' || $file_ext === 'jpeg') {
+                $src_img = @imagecreatefromjpeg($file_tmp);
+            } elseif ($file_ext === 'png') {
+                $src_img = @imagecreatefrompng($file_tmp);
+            } elseif ($file_ext === 'gif') {
+                $src_img = @imagecreatefromgif($file_tmp);
+            }
+            
+            $processed = false;
+            if ($src_img) {
+                $width = imagesx($src_img);
+                $height = imagesy($src_img);
+                // สร้างภาพใหม่ขนาด 512x512
+                $new_width = 512;
+                $new_height = 512;
+                $dst_img = imagecreatetruecolor($new_width, $new_height);
+                
+                // ถ้ารูปเดิมโปร่งแสง (PNG/GIF) ให้ทำพื้นหลังขาว
+                $white = imagecolorallocate($dst_img, 255, 255, 255);
+                imagefill($dst_img, 0, 0, $white);
+                
+                // คัดลอกและย่อรูป
+                imagecopyresampled($dst_img, $src_img, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+                
+                // บันทึกเป็น JPEG
+                if (@imagejpeg($dst_img, $dest_path, 95)) {
+                    $processed = true;
+                }
+                
+                imagedestroy($src_img);
+                imagedestroy($dst_img);
+            }
+            
+            // หากระบบไม่รองรับ GD หรือประมวลผลไม่สำเร็จ ให้เขียนไฟล์ตรงแบบ fallback
+            if (!$processed) {
+                if (@move_uploaded_file($file_tmp, $dest_path)) {
+                    $processed = true;
+                }
+            }
+            
+            if ($processed) {
+                $success_msg = "อัปเดตโลโก้ระบบและ PWA App Icon สำหรับใช้ติดตั้งบนสมาร์ตโฟน/แท็บเล็ต สำเร็จเรียบร้อยแล้ว!";
+                header("Location: super_admin.php?success_msg=" . urlencode($success_msg));
+                exit;
+            } else {
+                $error_msg = "เกิดข้อผิดพลาดในการเขียนไฟล์ภาพลงเซิร์ฟเวอร์หลัก กรุณาตรวจสอบสิทธิ์การเขียนไฟล์ (Permission)";
+            }
+        }
+    } else {
+        $error_msg = "ไม่พบไฟล์ภาพที่อัปโหลด หรือไฟล์มีขนาดใหญ่เกินขีดจำกัดเซิร์ฟเวอร์";
+    }
+}
+
 // การอัปเดตสถานะโรงเรียนและการจัดลงทะเบียนตั้งต้น (Bootstrap school)
 if (isset($_GET['approve_code'])) {
     $approve_code = trim($_GET['approve_code']);
@@ -481,6 +553,49 @@ $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fe
 
                         <button type="submit" class="w-full py-2.5 bg-[#0A3370] hover:bg-[#0f172a] text-white font-bold rounded-xl transition-all shadow cursor-pointer border-none text-center">
                             💾 บันทึกการเปลี่ยนแปลงบัญชี
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Section: System Logo & PWA App Icon Setup -->
+                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                    <div class="border-b pb-3">
+                        <h2 class="font-extrabold text-[#0A3370] text-sm flex items-center gap-1.5">
+                            <span>📱 ตั้งค่าโลโก้ระบบ & PWA App Icon</span>
+                        </h2>
+                        <p class="text-[10px] text-slate-400 mt-0.5">เปลี่ยนรูปภาพโลโก้หลักของระบบ และไอคอนที่แสดงตอนติดตั้งบนโทรศัพท์มือถือ แท็บเล็ต หรือพีซี</p>
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                        <input type="hidden" name="action_upload_pwa_logo" value="1">
+                        
+                        <!-- Current Logo Display -->
+                        <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                            <div class="w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 bg-white flex-shrink-0 flex items-center justify-center shadow-inner">
+                                <?php 
+                                $icon_file = __DIR__ . '/src/assets/images/pwa_app_icon.jpg';
+                                $icon_url = '/src/assets/images/pwa_app_icon.jpg';
+                                if (file_exists($icon_file)) {
+                                    $icon_url .= '?t=' . filemtime($icon_file);
+                                }
+                                ?>
+                                <img src="<?php echo $icon_url; ?>" class="w-full h-full object-cover" alt="Current System Logo">
+                            </div>
+                            <div class="space-y-1">
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">โลโก้ปัจจุบัน</span>
+                                <h4 class="font-bold text-slate-700 text-xs">pwa_app_icon.jpg</h4>
+                                <p class="text-[9px] text-slate-400 leading-normal">จะแสดงผลในแถบเมนูบาร์ แฟฟิคอน และหน้าจอโฮมเมื่อติดตั้งบนมือถือ</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-slate-600 block">เลือกไฟล์โลโก้ใหม่ *</label>
+                            <input type="file" name="pwa_logo_file" accept="image/*" required class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10.5px] file:font-semibold file:bg-blue-50 file:text-[#0A3370] hover:file:bg-blue-100 cursor-pointer">
+                            <p class="text-[9px] text-slate-400 leading-normal mt-1">💡 แนะนำ: ใช้ภาพรูปทรงสี่เหลี่ยมจัตุรัส (เช่น 512x512 px) สกุลไฟล์ PNG, JPG หรือ GIF เพื่อการติดตั้ง PWA ที่แสดงสัดส่วนรูปภาพได้สวยงามที่สุด ระบบจะแปลงภาพเป็นรูปจัตุรัสให้โดยอัตโนมัติ</p>
+                        </div>
+
+                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-blue-900 to-[#0A3370] hover:opacity-95 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer border-none text-center">
+                            📤 อัปโหลดและเปลี่ยนโลโก้ระบบ
                         </button>
                     </form>
                 </div>

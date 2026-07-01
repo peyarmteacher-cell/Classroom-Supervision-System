@@ -617,6 +617,18 @@ function convert_gdrive_url_to_direct($url) {
     return $url;
 }
 
+/**
+ * ดึงลิงก์ไฟล์ไอคอนแอปพลิเคชันหลักของระบบ (พร้อมระบบตัดแคชเวอร์ชันเบราว์เซอร์อัตโนมัติ)
+ */
+function get_system_logo_url() {
+    $base_url = '/src/assets/images/pwa_app_icon.jpg';
+    $full_path = __DIR__ . $base_url;
+    if (file_exists($full_path)) {
+        return $base_url . '?v=' . filemtime($full_path);
+    }
+    return $base_url;
+}
+
 // เริ่มต้น Session สำหรับใช้งานบัญชีลงทะเบียนทั่วไป
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
