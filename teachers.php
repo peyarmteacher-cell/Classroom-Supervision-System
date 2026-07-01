@@ -712,68 +712,136 @@ $all_classrooms_list = $stmt_cls_drop->fetchAll();
 
             <!-- List of current teachers -->
             <div class="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm text-xs space-y-4">
-                <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-extrabold text-[#0A3370] text-sm">รายชื่อคุณครูทั้งหมดในโรงเรียน (<?php echo count($all_teachers); ?> ท่าน)</h3>
-                    <span class="text-[10px] text-slate-400">ข้อมูลอัปเดตแบบเรียลไทม์จากเซิร์ฟเวอร์โรงเรียน</span>
+                <div class="border-b pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h3 class="font-extrabold text-[#0A3370] text-sm">ทำเนียบรายชื่อคุณครูทั้งหมด (<?php echo count($all_teachers); ?> ท่าน)</h3>
+                        <p class="text-[10px] text-slate-400 mt-0.5">ข้อมูลทะเบียนบุคลากรและรหัสล็อกอินระบบนิเทศแบบเรียลไทม์</p>
+                    </div>
+                    
+                    <!-- Modern Search Bar -->
+                    <div class="relative w-full sm:w-64">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400 text-xs">🔍</span>
+                        <input type="text" id="teacher-search-input" placeholder="ค้นหาชื่อ, ตำแหน่ง, รหัส, กลุ่มสาระ..." class="w-full pl-7 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-[#0A3370] focus:bg-white transition-all">
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-slate-650 font-extrabold text-[11px]">
-                            <tr>
-                                <th class="p-3">รหัสคุณครู</th>
-                                <th class="p-3">ชื่อ-นามสกุล</th>
-                                <th class="p-3">ตำแหน่ง / ระดับชั้นหลัก</th>
-                                <th class="p-3">กลุ่มสาระ / คาบสอน</th>
-                                <th class="p-3">ชื่อล็อกอินผู้ใช้งาน</th>
-                                <th class="p-3 text-center">สถานะ</th>
-                                <th class="p-3 text-center">ปฏิบัติการ</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 text-slate-700">
-                            <?php foreach ($all_teachers as $t): ?>
-                                <tr class="hover:bg-slate-50 transition">
-                                    <td class="p-3 font-mono font-bold text-blue-900"><?php echo htmlspecialchars($t['teacher_id']); ?></td>
-                                    <td class="p-3 font-bold text-slate-900">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                                                <?php if (!empty($t['photo_path']) && is_valid_photo($t['photo_path'])): ?>
-                                                    <img src="<?php echo htmlspecialchars($t['photo_path']); ?>" class="w-full h-full object-cover">
-                                                <?php else: ?>
-                                                    <span class="text-xs">👩‍🏫</span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <span><?php echo htmlspecialchars($t['teacher_name']); ?></span>
+                <!-- Card Grid View -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4" id="teacher-cards-grid">
+                    <?php foreach ($all_teachers as $t): ?>
+                        <?php 
+                        // เตรียมคำค้นหาให้พร้อมสรรพสำหรับ Javascript Realtime Filter
+                        $search_metadata = strtolower(implode(' ', [
+                            $t['teacher_id'],
+                            $t['teacher_name'],
+                            $t['position'],
+                            $t['subject_group'],
+                            $t['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1',
+                            $t['username']
+                        ]));
+                        ?>
+                        <div class="teacher-card bg-slate-50/50 hover:bg-white border border-slate-150 hover:border-blue-300 rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5" data-search-term="<?php echo htmlspecialchars($search_metadata); ?>">
+                            <div class="space-y-3">
+                                <!-- Card Header: Avatar & Badges -->
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-3">
+                                        <!-- Profile Photo Circular Frame -->
+                                        <div class="w-12 h-12 rounded-full overflow-hidden bg-white border border-slate-200 shadow-inner flex-shrink-0 flex items-center justify-center">
+                                            <?php if (!empty($t['photo_path']) && is_valid_photo($t['photo_path'])): ?>
+                                                <img src="<?php echo htmlspecialchars($t['photo_path']); ?>" class="w-full h-full object-cover">
+                                            <?php else: ?>
+                                                <span class="text-xl">👩‍🏫</span>
+                                            <?php endif; ?>
                                         </div>
-                                    </td>
-                                    <td class="p-3 text-slate-600">
-                                        <div class="font-bold text-slate-700"><?php echo htmlspecialchars($t['position']); ?></div>
-                                        <div class="text-[10px] text-[#0A3370] font-bold">🏫 <?php echo htmlspecialchars($t['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1'); ?></div>
-                                    </td>
-                                    <td class="p-3 text-slate-550 font-medium">
-                                        <div><?php echo htmlspecialchars($t['subject_group']); ?></div>
-                                        <div class="text-[10px] text-indigo-700 font-bold font-mono">📅 <?php echo (int)($t['teaching_hours'] ?? 8); ?> คาบ/สัปดาห์</div>
-                                    </td>
-                                    <td class="p-3"><span class="font-mono font-extrabold text-amber-600 bg-amber-50/20 px-1.5 py-0.5 rounded text-[10px] border border-amber-100/50"><?php echo htmlspecialchars($t['username']); ?></span></td>
-                                    <td class="p-3 text-center">
+                                        <div>
+                                            <div class="font-extrabold text-blue-900 text-[10px] font-mono">ID: <?php echo htmlspecialchars($t['teacher_id']); ?></div>
+                                            <h4 class="font-bold text-slate-900 text-xs leading-tight mt-0.5"><?php echo htmlspecialchars($t['teacher_name']); ?></h4>
+                                            <p class="text-[9.5px] text-slate-500 font-medium mt-0.5"><?php echo htmlspecialchars($t['position']); ?></p>
+                                        </div>
+                                    </div>
+                                    <div>
                                         <?php if (($t['work_status'] ?? 'ปกติ') === 'ปกติ'): ?>
-                                            <span class="p-1 px-2.5 bg-emerald-50 text-emerald-700 border border-emerald-150 rounded-full text-[10px] font-bold">ปกติ</span>
+                                            <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[9px] font-extrabold">ปกติ</span>
                                         <?php else: ?>
-                                            <span class="p-1 px-2.5 bg-rose-50 text-rose-700 border border-rose-150 rounded-full text-[10px] font-bold">🤒 <?php echo htmlspecialchars($t['work_status']); ?></span>
+                                            <span class="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-full text-[9px] font-extrabold">🤒 <?php echo htmlspecialchars($t['work_status']); ?></span>
                                         <?php endif; ?>
-                                    </td>
-                                    <td class="p-3 text-center">
-                                        <div class="flex justify-center gap-1.5">
-                                            <a href="teachers.php?edit_id=<?php echo urlencode($t['teacher_id']); ?>" class="bg-amber-50 border border-amber-200 text-amber-700 font-bold py-1 px-2 rounded-md hover:bg-amber-100" title="แก้ไข">แก้ไข</a>
-                                            <a href="teachers.php?delete_id=<?php echo urlencode($t['teacher_id']); ?>" onclick="return confirm('ยืนยันลบข้อมูลคุณครู <?php echo htmlspecialchars($t['teacher_name']); ?> ออกจากสารบบโรงเรียน? ทั้งนี้บัญชีล็อกอินและสถิตินิเทศทั้งหมดของคุณครูจะถูกลบทิ้งไปพร้อมกันถาวร')" class="bg-rose-50 border border-rose-200 text-rose-600 font-bold py-1 px-2 rounded-md hover:bg-rose-100" title="ลบ">ลบ</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                                    </div>
+                                </div>
+
+                                <!-- Card Body: Metadata Grid -->
+                                <div class="bg-white/90 border border-slate-100 p-2.5 rounded-xl space-y-1.5 text-[10px] text-slate-600 shadow-sm">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 font-medium">🏫 ชั้นเรียนหลัก</span>
+                                        <span class="font-bold text-slate-800 text-right"><?php echo htmlspecialchars($t['classroom'] ?? 'ชั้นประถมศึกษาปีที่ 1/1'); ?></span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 font-medium">📚 กลุ่มสาระ</span>
+                                        <span class="font-bold text-slate-800 text-right"><?php echo htmlspecialchars($t['subject_group']); ?></span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-400 font-medium">📅 คาบสอน</span>
+                                        <span class="font-mono font-bold text-indigo-700 text-right"><?php echo (int)($t['teaching_hours'] ?? 8); ?> คาบ/สัปดาห์</span>
+                                    </div>
+                                    <div class="flex justify-between items-center pt-1.5 border-t border-slate-100">
+                                        <span class="text-slate-400 font-medium">🔑 ชื่อล็อกอิน</span>
+                                        <span class="font-mono font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded text-[9px] border border-amber-100/50"><?php echo htmlspecialchars($t['username']); ?></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Footer: Actions -->
+                            <div class="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                                <a href="teachers.php?edit_id=<?php echo urlencode($t['teacher_id']); ?>" class="flex-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold py-1.5 rounded-lg text-center transition flex items-center justify-center gap-1.5" title="แก้ไข">
+                                    ✏️ แก้ไขข้อมูล
+                                </a>
+                                <a href="teachers.php?delete_id=<?php echo urlencode($t['teacher_id']); ?>" onclick="return confirm('ยืนยันลบข้อมูลคุณครู <?php echo htmlspecialchars($t['teacher_name']); ?> ออกจากสารบบโรงเรียน? ทั้งนี้บัญชีล็อกอินและสถิตินิเทศทั้งหมดของคุณครูจะถูกลบทิ้งไปพร้อมกันถาวร')" class="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold p-1.5 rounded-lg transition" title="ลบ">
+                                    🗑️
+                                </a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <!-- Empty Search Results State -->
+                <div id="no-results-msg" class="hidden py-12 text-center text-slate-400 space-y-2 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <span class="text-3xl block">🔍</span>
+                    <p class="font-bold text-xs text-slate-600">ไม่พบรายชื่อคุณครูตามเงื่อนไขที่ค้นหา</p>
+                    <p class="text-[10px] text-slate-400">กรุณาลองระบุคำค้นหาใหม่อีกครั้ง เช่น ภาษาไทย, ประถม, หรือ รหัสคุณครู</p>
                 </div>
             </div>
+
+            <!-- Client-Side Realtime Search Logic -->
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const searchInput = document.getElementById('teacher-search-input');
+                    const teacherCards = document.querySelectorAll('.teacher-card');
+                    const noResults = document.getElementById('no-results-msg');
+
+                    if (searchInput) {
+                        searchInput.addEventListener('input', function() {
+                            const query = this.value.trim().toLowerCase();
+                            let foundCount = 0;
+
+                            teacherCards.forEach(card => {
+                                const term = card.getAttribute('data-search-term') || '';
+                                if (term.includes(query)) {
+                                    card.style.display = 'flex';
+                                    foundCount++;
+                                } else {
+                                    card.style.display = 'none';
+                                }
+                            });
+
+                            if (noResults) {
+                                if (foundCount === 0) {
+                                    noResults.classList.remove('hidden');
+                                } else {
+                                    noResults.classList.add('hidden');
+                                }
+                            }
+                        });
+                    }
+                });
+            </script>
 
         </div>
 
