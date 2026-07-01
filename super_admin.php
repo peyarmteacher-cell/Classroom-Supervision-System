@@ -78,73 +78,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_update_super_a
 
 // การจัดการอัปโหลดโลโก้ระบบและ PWA App Icon โดย Super Admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_upload_pwa_logo'])) {
-    if (isset($_FILES['pwa_logo_file']) && $_FILES['pwa_logo_file']['error'] === UPLOAD_ERR_OK) {
+    $processed = false;
+    $base64_data = $_POST['pwa_logo_base64'] ?? '';
+    
+    // วิธีหลัก: ผ่าน Base64 ที่ประมวลผลย่อและแปลงเสร็จสรรพจากเบราว์เซอร์แล้ว (เสถียรที่สุด ปราศจากปัญหาโฟลเดอร์ Read-only)
+    if (!empty($base64_data)) {
+        if (strpos($base64_data, 'data:image/') === 0) {
+            try {
+                // บันทึกระบบฐานข้อมูลคู่ (SYSTEM และโรงเรียนเริ่มต้น 31054002) เพื่อให้เรียกใช้งานได้ในทุกหน้าจอแบบไร้รอยต่อ
+                $stmt = $pdo->prepare("INSERT INTO school_settings (school_code, setting_key, setting_value) 
+                                       VALUES ('SYSTEM', 'system_logo', ?) 
+                                       ON DUPLICATE KEY UPDATE setting_value = ?");
+                $stmt->execute([$base64_data, $base64_data]);
+                
+                $stmt2 = $pdo->prepare("INSERT INTO school_settings (school_code, setting_key, setting_value) 
+                                       VALUES ('31054002', 'system_logo', ?) 
+                                       ON DUPLICATE KEY UPDATE setting_value = ?");
+                $stmt2->execute([$base64_data, $base64_data]);
+                
+                $processed = true;
+            } catch (Exception $db_err) {
+                // ละเว้นหากฐานข้อมูลยังไม่มีคอลัมน์แล้วพยายามทำส่วนถัดไป
+            }
+            
+            // พยายามบันทึกเขียนลงดิสก์กายภาพของระบบ (ถ้าสิทธิ์ Permission อนุญาต) เพื่อความสมบูรณ์แบบ
+            try {
+                $dest_dir = __DIR__ . '/src/assets/images';
+                if (!is_dir($dest_dir)) {
+                    @mkdir($dest_dir, 0755, true);
+                }
+                $dest_path = $dest_dir . '/pwa_app_icon.jpg';
+                
+                $parts = explode(',', $base64_data);
+                $payload = $parts[1] ?? '';
+                $file_content = base64_decode($payload);
+                if ($file_content) {
+                    if (@file_put_contents($dest_path, $file_content) !== false) {
+                        @chmod($dest_path, 0666);
+                        $processed = true;
+                    }
+                }
+            } catch (Exception $file_err) {
+                // หากเขียนไฟล์ไม่ได้แต่บันทึกลง DB สำเร็จแล้ว ให้ดำเนินการต่อได้ทันที
+            }
+        }
+    }
+    
+    // วิธีสำรอง: กรณีเบราว์เซอร์ปิดจาวาสคริปต์หรือใช้ฟอร์มอัปโหลดตรงธรรมดา
+    if (!$processed && isset($_FILES['pwa_logo_file']) && $_FILES['pwa_logo_file']['error'] === UPLOAD_ERR_OK) {
         $file_tmp = $_FILES['pwa_logo_file']['tmp_name'];
         $file_name = $_FILES['pwa_logo_file']['name'];
         $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
         $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
         
-        if (!in_array($file_ext, $allowed_exts)) {
-            $error_msg = "อนุญาตเฉพาะไฟล์รูปภาพสกุล JPG, JPEG, PNG หรือ GIF เท่านั้น";
+        if (in_array($file_ext, $allowed_exts)) {
+            $raw_content = file_get_contents($file_tmp);
+            if ($raw_content) {
+                $mime_type = 'image/jpeg';
+                if ($file_ext === 'png') $mime_type = 'image/png';
+                elseif ($file_ext === 'gif') $mime_type = 'image/gif';
+                
+                $base64_val = 'data:' . $mime_type . ';base64,' . base64_encode($raw_content);
+                
+                try {
+                    $stmt = $pdo->prepare("INSERT INTO school_settings (school_code, setting_key, setting_value) 
+                                           VALUES ('SYSTEM', 'system_logo', ?) 
+                                           ON DUPLICATE KEY UPDATE setting_value = ?");
+                    $stmt->execute([$base64_val, $base64_val]);
+                    
+                    $stmt2 = $pdo->prepare("INSERT INTO school_settings (school_code, setting_key, setting_value) 
+                                           VALUES ('31054002', 'system_logo', ?) 
+                                           ON DUPLICATE KEY UPDATE setting_value = ?");
+                    $stmt2->execute([$base64_val, $base64_val]);
+                    
+                    $processed = true;
+                } catch (Exception $db_err) {}
+                
+                try {
+                    $dest_dir = __DIR__ . '/src/assets/images';
+                    if (!is_dir($dest_dir)) {
+                        @mkdir($dest_dir, 0755, true);
+                    }
+                    $dest_path = $dest_dir . '/pwa_app_icon.jpg';
+                    if (@file_put_contents($dest_path, $raw_content) !== false) {
+                        @chmod($dest_path, 0666);
+                        $processed = true;
+                    }
+                } catch (Exception $file_err) {}
+            }
         } else {
-            $dest_dir = __DIR__ . '/src/assets/images';
-            if (!is_dir($dest_dir)) {
-                @mkdir($dest_dir, 0755, true);
-            }
-            $dest_path = $dest_dir . '/pwa_app_icon.jpg';
-            
-            // ใช้ GD ในการแปลงและจัดเก็บรูปภาพเป็น JPG ที่มีคุณภาพสูงและปรับขนาดเป็น 512x512 พิกเซล เพื่อความเหมาะสมเป็น PWA Icon และโลโก้
-            $src_img = null;
-            if ($file_ext === 'jpg' || $file_ext === 'jpeg') {
-                $src_img = @imagecreatefromjpeg($file_tmp);
-            } elseif ($file_ext === 'png') {
-                $src_img = @imagecreatefrompng($file_tmp);
-            } elseif ($file_ext === 'gif') {
-                $src_img = @imagecreatefromgif($file_tmp);
-            }
-            
-            $processed = false;
-            if ($src_img) {
-                $width = imagesx($src_img);
-                $height = imagesy($src_img);
-                // สร้างภาพใหม่ขนาด 512x512
-                $new_width = 512;
-                $new_height = 512;
-                $dst_img = imagecreatetruecolor($new_width, $new_height);
-                
-                // ถ้ารูปเดิมโปร่งแสง (PNG/GIF) ให้ทำพื้นหลังขาว
-                $white = imagecolorallocate($dst_img, 255, 255, 255);
-                imagefill($dst_img, 0, 0, $white);
-                
-                // คัดลอกและย่อรูป
-                imagecopyresampled($dst_img, $src_img, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-                
-                // บันทึกเป็น JPEG
-                if (@imagejpeg($dst_img, $dest_path, 95)) {
-                    $processed = true;
-                }
-                
-                imagedestroy($src_img);
-                imagedestroy($dst_img);
-            }
-            
-            // หากระบบไม่รองรับ GD หรือประมวลผลไม่สำเร็จ ให้เขียนไฟล์ตรงแบบ fallback
-            if (!$processed) {
-                if (@move_uploaded_file($file_tmp, $dest_path)) {
-                    $processed = true;
-                }
-            }
-            
-            if ($processed) {
-                $success_msg = "อัปเดตโลโก้ระบบและ PWA App Icon สำหรับใช้ติดตั้งบนสมาร์ตโฟน/แท็บเล็ต สำเร็จเรียบร้อยแล้ว!";
-                header("Location: super_admin.php?success_msg=" . urlencode($success_msg));
-                exit;
-            } else {
-                $error_msg = "เกิดข้อผิดพลาดในการเขียนไฟล์ภาพลงเซิร์ฟเวอร์หลัก กรุณาตรวจสอบสิทธิ์การเขียนไฟล์ (Permission)";
-            }
+            $error_msg = "อนุญาตเฉพาะไฟล์รูปภาพสกุล JPG, JPEG, PNG หรือ GIF เท่านั้น";
         }
+    }
+    
+    if ($processed) {
+        $success_msg = "อัปเดตโลโก้ระบบและ PWA App Icon สำหรับใช้ติดตั้งบนสมาร์ตโฟน/แท็บเล็ต สำเร็จเรียบร้อยแล้ว!";
+        header("Location: super_admin.php?success_msg=" . urlencode($success_msg));
+        exit;
     } else {
-        $error_msg = "ไม่พบไฟล์ภาพที่อัปโหลด หรือไฟล์มีขนาดใหญ่เกินขีดจำกัดเซิร์ฟเวอร์";
+        if (!isset($error_msg)) {
+            $error_msg = "เกิดข้อผิดพลาดในการบันทึกภาพโลโก้ กรุณาลองอัปโหลดใหม่อีกครั้ง";
+        }
     }
 }
 
@@ -498,15 +532,15 @@ $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fe
                         
                         <div class="md:col-span-3 space-y-1">
                             <label class="font-bold text-slate-600 block">รหัส SMISS 8 หลักใหม่ *</label>
-                            <input type="text" name="new_school_code" id="edit_input_new_school_code" maxlength="8" required class="w-full p-2 bg-white border border-slate-205 rounded-lg outline-none font-bold text-amber-800 font-mono tracking-wider focus:ring-2 focus:ring-[#0A3370]">
+                            <input type="text" name="new_school_code" id="edit_input_new_school_code" maxlength="8" required class="w-full p-2 bg-white border border-slate-200 rounded-lg outline-none font-bold text-amber-800 font-mono tracking-wider focus:ring-2 focus:ring-[#0A3370]">
                         </div>
                         <div class="md:col-span-5 space-y-1">
-                            <label class="font-bold text-slate-600 block">ชื่อชื่อโรงเรียนสถานศึกษาจริง *</label>
-                            <input type="text" name="school_name" id="edit_input_school_name" required class="w-full p-2 bg-white border border-slate-205 rounded-lg outline-none font-semibold text-slate-800 focus:ring-2 focus:ring-[#0A3370]">
+                            <label class="font-bold text-slate-600 block">ชื่อโรงเรียนสถานศึกษาจริง *</label>
+                            <input type="text" name="school_name" id="edit_input_school_name" required class="w-full p-2 bg-white border border-slate-200 rounded-lg outline-none font-semibold text-slate-800 focus:ring-2 focus:ring-[#0A3370]">
                         </div>
                         <div class="md:col-span-4 space-y-1">
                             <label class="font-bold text-slate-600 block">ชื่อส่วนงานสังกัดราชการ *</label>
-                            <input type="text" name="affiliation" id="edit_input_affiliation" required class="w-full p-2 bg-white border border-slate-205 rounded-lg outline-none text-slate-700 focus:ring-2 focus:ring-[#0A3370]">
+                            <input type="text" name="affiliation" id="edit_input_affiliation" required class="w-full p-2 bg-white border border-slate-200 rounded-lg outline-none text-slate-700 focus:ring-2 focus:ring-[#0A3370]">
                         </div>
                         
                         <div class="md:col-span-12 flex justify-end gap-1.5 pt-1">
@@ -566,38 +600,126 @@ $all_schools = $pdo->query("SELECT * FROM schools ORDER BY created_at DESC")->fe
                         <p class="text-[10px] text-slate-400 mt-0.5">เปลี่ยนรูปภาพโลโก้หลักของระบบ และไอคอนที่แสดงตอนติดตั้งบนโทรศัพท์มือถือ แท็บเล็ต หรือพีซี</p>
                     </div>
 
-                    <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs">
+                    <form method="POST" enctype="multipart/form-data" class="space-y-4 text-xs" id="pwa-logo-form">
                         <input type="hidden" name="action_upload_pwa_logo" value="1">
+                        <input type="hidden" name="pwa_logo_base64" id="pwa_logo_base64" value="">
                         
-                        <!-- Current Logo Display -->
-                        <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                            <div class="w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 bg-white flex-shrink-0 flex items-center justify-center shadow-inner">
-                                <?php 
-                                $icon_file = __DIR__ . '/src/assets/images/pwa_app_icon.jpg';
-                                $icon_url = '/src/assets/images/pwa_app_icon.jpg';
-                                if (file_exists($icon_file)) {
-                                    $icon_url .= '?t=' . filemtime($icon_file);
-                                }
-                                ?>
-                                <img src="<?php echo $icon_url; ?>" class="w-full h-full object-cover" alt="Current System Logo">
+                        <!-- Current Logo Display & Interactive Preview Container -->
+                        <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 relative overflow-hidden">
+                            <div class="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-slate-200 bg-white flex-shrink-0 flex items-center justify-center shadow-inner group">
+                                <img id="pwa-logo-preview" src="<?php echo get_system_logo_url(); ?>" class="w-full h-full object-cover transition-all duration-300" alt="System Logo Preview">
+                                
+                                <!-- Inner Spinner Overlay -->
+                                <div id="pwa-logo-spinner" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center text-white opacity-0 transition-opacity duration-200 pointer-events-none">
+                                    <svg class="animate-spin h-5 w-5 text-sky-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
                             </div>
-                            <div class="space-y-1">
-                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">โลโก้ปัจจุบัน</span>
-                                <h4 class="font-bold text-slate-700 text-xs">pwa_app_icon.jpg</h4>
-                                <p class="text-[9px] text-slate-400 leading-normal">จะแสดงผลในแถบเมนูบาร์ แฟฟิคอน และหน้าจอโฮมเมื่อติดตั้งบนมือถือ</p>
+                            <div class="space-y-1.5 flex-1 min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">สถานะรูปภาพ</span>
+                                    <span id="pwa-logo-status-badge" class="bg-blue-50 text-blue-700 border border-blue-150 px-2 py-0.5 rounded text-[9px] font-extrabold transition-all">ดึงจากฐานข้อมูลระบบ</span>
+                                </div>
+                                <h4 class="font-extrabold text-slate-700 text-xs truncate" id="pwa-logo-filename">pwa_app_icon.jpg</h4>
+                                <p class="text-[9px] text-slate-400 leading-normal">ใช้ประทับตราหัวเมนู แฟฟิคอนเว็บแอพฯ และภาพไอคอนติดตั้ง PWA บนโทรศัพท์มือถือ</p>
                             </div>
                         </div>
 
                         <div class="space-y-1.5">
-                            <label class="font-bold text-slate-600 block">เลือกไฟล์โลโก้ใหม่ *</label>
-                            <input type="file" name="pwa_logo_file" accept="image/*" required class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10.5px] file:font-semibold file:bg-blue-50 file:text-[#0A3370] hover:file:bg-blue-100 cursor-pointer">
-                            <p class="text-[9px] text-slate-400 leading-normal mt-1">💡 แนะนำ: ใช้ภาพรูปทรงสี่เหลี่ยมจัตุรัส (เช่น 512x512 px) สกุลไฟล์ PNG, JPG หรือ GIF เพื่อการติดตั้ง PWA ที่แสดงสัดส่วนรูปภาพได้สวยงามที่สุด ระบบจะแปลงภาพเป็นรูปจัตุรัสให้โดยอัตโนมัติ</p>
+                            <label class="font-bold text-slate-600 block">เลือกไฟล์รูปภาพโลโก้ใหม่ *</label>
+                            <input type="file" id="pwa_logo_file_input" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10.5px] file:font-semibold file:bg-blue-50 file:text-[#0A3370] hover:file:bg-blue-100 cursor-pointer">
+                            <p class="text-[9px] text-slate-400 leading-normal mt-1">💡 แนะนำ: ใช้ภาพรูปทรงจัตุรัสระบบจะทำการแปลงและย่อภาพเป็น 512x512 พิกเซลที่มีสัดส่วนสมบูรณ์แบบบนโทรศัพท์มือถือ/แท็บเล็ตให้ทันทีก่อนการจัดเก็บ</p>
                         </div>
 
-                        <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-blue-900 to-[#0A3370] hover:opacity-95 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer border-none text-center">
-                            📤 อัปโหลดและเปลี่ยนโลโก้ระบบ
+                        <button type="submit" id="pwa-submit-btn" class="w-full py-2.5 bg-gradient-to-r from-blue-900 to-[#0A3370] hover:opacity-95 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer border-none text-center flex items-center justify-center gap-1.5">
+                            <span>📤 อัปโหลดและเปลี่ยนโลโก้ระบบ</span>
                         </button>
                     </form>
+
+                    <!-- Client-side Interactive Core Canvas Logic -->
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const fileInput = document.getElementById('pwa_logo_file_input');
+                        const base64Input = document.getElementById('pwa_logo_base64');
+                        const previewImg = document.getElementById('pwa-logo-preview');
+                        const statusBadge = document.getElementById('pwa-logo-status-badge');
+                        const filenameLabel = document.getElementById('pwa-logo-filename');
+                        const spinner = document.getElementById('pwa-logo-spinner');
+
+                        if (fileInput) {
+                            fileInput.addEventListener('change', function() {
+                                if (this.files && this.files[0]) {
+                                    const file = this.files[0];
+                                    filenameLabel.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+                                    
+                                    // แสดงสปินเนอร์และอัปเดตสถานะบาร์
+                                    spinner.style.opacity = '1';
+                                    statusBadge.textContent = 'กำลังประมวลผลรูปภาพ...';
+                                    statusBadge.className = 'bg-amber-50 text-amber-700 border border-amber-150 px-2 py-0.5 rounded text-[9px] font-extrabold animate-pulse';
+                                    
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        const img = new Image();
+                                        img.onload = function() {
+                                            // ปรับความละเอียดให้สมบูรณ์สำหรับ PWA Icon (512x512)
+                                            const size = 512;
+                                            const canvas = document.createElement('canvas');
+                                            canvas.width = size;
+                                            canvas.height = size;
+                                            
+                                            const ctx = canvas.getContext('2d');
+                                            // ทำพื้นหลังสีขาวกรณีภาพโปร่งแสง (.PNG)
+                                            ctx.fillStyle = '#FFFFFF';
+                                            ctx.fillRect(0, 0, size, size);
+                                            
+                                            // ทำการคำนวณตัดภาพให้เป็นทรงจัตุรัสแบบกึ่งกลางพอดี (Center Cropping)
+                                            let srcX = 0;
+                                            let srcY = 0;
+                                            let srcSize = img.width;
+                                            
+                                            if (img.width > img.height) {
+                                                srcSize = img.height;
+                                                srcX = (img.width - img.height) / 2;
+                                            } else {
+                                                srcSize = img.width;
+                                                srcY = (img.height - img.width) / 2;
+                                            }
+                                            
+                                            // วาดลงแคนวาส
+                                            ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, size, size);
+                                            
+                                            // แปลงเป็นข้อมูลภาพ Base64 คุณภาพสูงแบบ JPEG
+                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.95);
+                                            
+                                            // เก็บค่า Base64 ลง Hidden Input และเปลี่ยนรูปตัวอย่างทันที
+                                            base64Input.value = compressedBase64;
+                                            previewImg.src = compressedBase64;
+                                            
+                                            // ปิดสปินเนอร์อัปเดตความเสถียร
+                                            spinner.style.opacity = '0';
+                                            statusBadge.textContent = '✓ ภาพตัวอย่างใหม่พร้อมบันทึก';
+                                            statusBadge.className = 'bg-emerald-50 text-emerald-700 border border-emerald-150 px-2 py-0.5 rounded text-[9px] font-extrabold';
+                                        };
+                                        img.onerror = function() {
+                                            spinner.style.opacity = '0';
+                                            statusBadge.textContent = '❌ โหลดภาพไม่สำเร็จ';
+                                            statusBadge.className = 'bg-rose-50 text-rose-700 border border-rose-150 px-2 py-0.5 rounded text-[9px] font-extrabold';
+                                        };
+                                        img.src = e.target.result;
+                                    };
+                                    reader.onerror = function() {
+                                        spinner.style.opacity = '0';
+                                        statusBadge.textContent = '❌ อ่านไฟล์ภาพไม่สำเร็จ';
+                                        statusBadge.className = 'bg-rose-50 text-rose-700 border border-rose-150 px-2 py-0.5 rounded text-[9px] font-extrabold';
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            });
+                        }
+                    });
+                    </script>
                 </div>
 
                 <!-- Section 2: Instructions and Google Apps Script Code block -->
