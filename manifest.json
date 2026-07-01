@@ -10,7 +10,7 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/src/assets/images/pwa_app_icon.jpg",
+      "src": "/get_logo.php?v=default",
       "sizes": "512x512",
       "type": "image/jpeg",
       "purpose": "any maskable"

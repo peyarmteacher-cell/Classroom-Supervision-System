@@ -211,9 +211,9 @@ if (isset($_GET['action_export_csv'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>หน้ารวมแดชบอร์ด - ระบบนิเทศการจัดการเรียนการสอน</title>
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="/manifest.json?v=<?php echo urlencode(basename(get_system_logo_url())); ?>">
     <meta name="theme-color" content="#0A3370">
-    <link rel="apple-touch-icon" href="/src/assets/images/school_crest_logo_1781666281619.jpg">
+    <link class="apple-touch-icon" rel="apple-touch-icon" href="<?php echo get_system_logo_url(); ?>">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="ระบบนิเทศ">

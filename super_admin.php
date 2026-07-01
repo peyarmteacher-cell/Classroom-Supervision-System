@@ -172,6 +172,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_upload_pwa_log
     }
     
     if ($processed) {
+        // อัปเดตไฟล์ manifest.json สำหรับแคชไอคอน PWA ล่าสุด ให้เปลี่ยนแคชบัสเพื่ออัปเดตบนมือถือทันที
+        try {
+            $manifest_path = __DIR__ . '/manifest.json';
+            $manifest = [
+                "name" => "ระบบนิเทศชั้นเรียน",
+                "short_name" => "ระบบนิเทศชั้นเรียน",
+                "description" => "ระบบนิเทศการจัดการเรียนการสอนระดับโรงเรียน",
+                "start_url" => "/dashboard.php",
+                "display" => "standalone",
+                "background_color" => "#F5F7FA",
+                "theme_color" => "#1565C0",
+                "orientation" => "portrait",
+                "scope" => "/",
+                "icons" => [
+                    [
+                        "src" => "/get_logo.php?v=" . time(),
+                        "sizes" => "512x512",
+                        "type" => "image/jpeg",
+                        "purpose" => "any maskable"
+                    ]
+                ]
+            ];
+            @file_put_contents($manifest_path, json_encode($manifest, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        } catch (Exception $manifest_err) {}
+
         $success_msg = "อัปเดตโลโก้ระบบและ PWA App Icon สำหรับใช้ติดตั้งบนสมาร์ตโฟน/แท็บเล็ต สำเร็จเรียบร้อยแล้ว!";
         header("Location: super_admin.php?success_msg=" . urlencode($success_msg));
         exit;

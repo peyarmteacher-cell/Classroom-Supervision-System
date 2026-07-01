@@ -1,11 +1,8 @@
 // Service Worker for Classroom Supervision Systems (Optimized for Dynamic PHP environment)
-const CACHE_NAME = 'classroom-supervision-v2';
+const CACHE_NAME = 'classroom-supervision-v3';
 
 // Cache ONLY static assets that do not require server-side PHP session or auth
-const STATIC_ASSETS = [
-  '/manifest.json',
-  '/src/assets/images/school_crest_logo_1781666281619.jpg'
-];
+const STATIC_ASSETS = [];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

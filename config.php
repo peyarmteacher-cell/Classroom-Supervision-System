@@ -622,17 +622,19 @@ function convert_gdrive_url_to_direct($url) {
  */
 function get_system_logo_url() {
     global $pdo;
+    $hash = 'default';
     
     // ตรวจสอบจากฐานข้อมูลก่อนเพื่อความยืดหยุ่นและความทนทาน
     if (isset($pdo)) {
         try {
-            // ดึงโลโก้หลักของระบบ (SYSTEM) หรือของโรงเรียนปัจจุบัน
+            // ดึงความยาวหรือข้อมูลของโลโก้หลักของระบบ เพื่อคำนวณ Hash สำหรับแคช
             $school_code = $_SESSION['school_code'] ?? '31054002';
-            $stmt = $pdo->prepare("SELECT setting_value FROM school_settings WHERE (school_code = ? OR school_code = 'SYSTEM') AND setting_key = 'system_logo' ORDER BY FIELD(school_code, ?, 'SYSTEM') LIMIT 1");
+            $stmt = $pdo->prepare("SELECT LENGTH(setting_value) FROM school_settings WHERE (school_code = ? OR school_code = 'SYSTEM') AND setting_key = 'system_logo' ORDER BY FIELD(school_code, ?, 'SYSTEM') LIMIT 1");
             $stmt->execute([$school_code, $school_code]);
-            $db_logo = $stmt->fetchColumn();
-            if ($db_logo) {
-                return $db_logo;
+            $db_len = $stmt->fetchColumn();
+            if ($db_len) {
+                $hash = 'db_' . $db_len;
+                return '/get_logo.php?v=' . $hash;
             }
         } catch (Exception $e) {
             // ข้ามไปใช้ไฟล์ในเครื่องหากเกิดข้อผิดพลาดของ DB
@@ -642,9 +644,9 @@ function get_system_logo_url() {
     $base_url = '/src/assets/images/pwa_app_icon.jpg';
     $full_path = __DIR__ . $base_url;
     if (file_exists($full_path)) {
-        return $base_url . '?v=' . filemtime($full_path);
+        $hash = 'file_' . filemtime($full_path);
     }
-    return $base_url;
+    return '/get_logo.php?v=' . $hash;
 }
 
 // เริ่มต้น Session สำหรับใช้งานบัญชีลงทะเบียนทั่วไป
