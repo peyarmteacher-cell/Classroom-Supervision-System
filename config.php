@@ -583,6 +583,9 @@ function is_valid_photo($path) {
     if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
         return true;
     }
+    if (strpos($path, 'data:image/') === 0) {
+        return true;
+    }
     return file_exists($path) || file_exists(__DIR__ . '/' . $path);
 }
 
